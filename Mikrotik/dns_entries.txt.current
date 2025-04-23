@@ -1,0 +1,60 @@
+
+# OOB Dns Entries
+
+/ip dns static add address=10.90.90.2 name=rb5009-1.oob.local type=A
+/ip dns static add address=10.90.90.3 name=rb5009-2.oob.local type=A
+/ip dns static add address=10.90.90.4 name=crs317-1.oob.local type=A
+/ip dns static add address=10.90.90.5 name=crs317-2.oob.local type=A
+
+/ip dns static add address=10.90.90.20 name=pve0.oob.local type=A
+/ip dns static add address=10.90.90.21 name=pve1.oob.local type=A
+/ip dns static add address=10.90.90.22 name=pve2.oob.local type=A
+/ip dns static add address=10.90.90.23 name=nfs1.oob.local type=A
+/ip dns static add address=10.90.90.24 name=nfs2.oob.local type=A
+/ip dns static add address=10.90.90.25 name=backup1.oob.local type=A
+/ip dns static add address=10.90.90.26 name=spare0.oob.local type=A
+/ip dns static add address=10.90.90.27 name=spare1.oob.local type=A
+/ip dns static add address=10.90.90.28 name=pve3.oob.local type=A
+/ip dns static add address=10.90.90.29 name=tailscale3.oob.local type=A
+/ip dns static add address=10.90.90.31 name=tailscale2.oob.local type=A
+
+# MGMT Dns Entries
+
+/ip dns static add address=10.20.10.20 name=pve0.mgmt.local type=A
+/ip dns static add address=10.20.10.21 name=pve1.mgmt.local type=A
+/ip dns static add address=10.20.10.22 name=pve2.mgmt.local type=A
+/ip dns static add address=10.20.10.23 name=nfs1.mgmt.local type=A
+/ip dns static add address=10.20.10.24 name=nfs2.mgmt.local type=A
+/ip dns static add address=10.20.10.25 name=backup1.mgmt.local type=A
+/ip dns static add address=10.20.10.26 name=spare0.mgmt.local type=A
+/ip dns static add address=10.20.10.27 name=spare1.mgmt.local type=A
+/ip dns static add address=10.20.10.28 name=pve3.mgmt.local type=A
+/ip dns static add address=10.20.10.29 name=monitor1.mgmt.local type=A
+/ip dns static add address=10.20.10.30 name=tailscale1.mgmt.local type=A
+/ip dns static add address=10.20.10.31 name=tailscale2.mgmt.local type=A
+
+# VM Dns Entries
+
+/ip dns static add address=10.20.20.23 name=nfs1.vm.local type=A
+/ip dns static add address=10.20.20.24 name=nfs2.vm.local type=A
+
+/ip dns static add address=10.20.20.130 name=mongo1.vm.local type=A
+/ip dns static add address=10.20.20.131 name=mongo2.vm.local type=A
+/ip dns static add address=10.20.20.132 name=mongo3.vm.local type=A
+
+/ip dns static add address=10.20.20.133 name=k0sapi.vm.local type=A
+/ip dns static add address=10.20.20.134 name=dev1.vm.local type=A
+/ip dns static add address=10.20.20.106 name=nodeport.vm.local type=A
+/ip dns static add address=10.20.20.107 name=nodeport.vm.local type=A
+
+# New VM Dns Entries
+# /ip dns static add address=192.168.0.2 name=dev1.vm.local type=A
+/ip dns static add address=192.168.0.3 name=caddy1.vm.local type=A
+# /ip dns static add address=192.168.0.4 name=cp1.vm.local type=A
+# /ip dns static add address=192.168.0.4 name=k0sapi.vm.local type=A
+# /ip dns static add address=192.168.0.7 name=wk1.vm.local type=A
+# /ip dns static add address=192.168.0.8 name=wk2.vm.local type=A
+/ip dns static add address=192.168.0.9 name=monitor1.vm.local type=A
+# /ip dns static add address=192.168.0.10 name=mongo1.vm.local type=A
+# /ip dns static add address=192.168.0.11 name=mongo2.vm.local type=A
+# /ip dns static add address=192.168.0.12 name=mongo3.vm.local type=A

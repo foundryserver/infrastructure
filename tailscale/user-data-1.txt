@@ -1,0 +1,33 @@
+#cloud-config
+hostname: tailscale1
+manage_etc_hosts: true
+packages:
+  - avahi-daemon
+apt:
+  conf: |
+    Acquire {
+      Check-Date "false";
+    };
+  update: true
+  upgrade: true
+
+users:
+  - name: admin
+    groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: $5$Z1E.TNM6ub$7ETXYlKpq8pzy.IcpY5r7CRZlqGH9onNbCZMr8s6zC6
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25
+    sudo: ALL=(ALL) NOPASSWD:ALL
+
+timezone: America/Vancouver
+runcmd:
+  - localectl set-x11-keymap "us" pc105
+  - setupcon -k --force || true
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - printf '#!/bin/sh\n\nethtool -K %s rx-udp-gro-forwarding on rx-gro-list off \n' "$(ip -o route get 8.8.8.8 | cut -f 5 -d " ")" | sudo tee /etc/networkd-dispatcher/routable.d/50-tailscale
+  - sudo chmod 755 /etc/networkd-dispatcher/routable.d/50-tailscale
+  - echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+  - echo 'net.ipv6.conf.all.forwarding = 1' | sudo tee -a /etc/sysctl.d/99-tailscale.conf
+  - sudo sysctl -p /etc/sysctl.d/99-tailscale.conf
