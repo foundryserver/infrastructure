@@ -18,9 +18,16 @@ echo "Running one-time initialization commands..."
 
 # --------------- Webhook Script ---------------
 
+# Set the port based on if it is dev or prod. We know this by finding the file dev or prod.
+if [ -f /home/fvtt/dev ]; then
+    PORT=7070
+else
+    PORT=8080
+fi
+
 # URL to webhook server
-URL0="http://vmapi0.vm.local:8080/webhook"
-URL1="http://vmapi1.vm.local:8080/webhook"
+URL0="http://vmapi0.vm.local:$PORT/vm/webhook"
+URL1="http://vmapi1.vm.local:$PORT/vm/webhook"
 
 # Set Initial url to vmapi0
 URL=$URL0
