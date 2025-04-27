@@ -39,14 +39,6 @@ sudo dpkg-reconfigure -plow unattended-upgrades
  nano /etc/apt/apt.conf.d/50unattended-upgrades
 ```
 
-## Setup Podman api
-
-Podman runs a a daemon-less runtime.
-
-```
-sudo apt install podman -y
-```
-
 ## Timezone
 
 ```
@@ -80,7 +72,7 @@ swapon /swapfile
 echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ```
 
-## Create fvtt user
+## Create fvtt user and service file.
 
 ```
 sudo adduser --uid 2000 --shell=/usr/sbin/nologin --disabled-password fvtt
@@ -88,7 +80,25 @@ sudo mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
 sudo mkdir -p /home/fvtt/webdav
 ```
 
-Create the default webdav config file.
+```
+cat << EOF > /etc/systemd/system/fvtt.service
+[Unit]
+Description=Fvtt Server
+After=network.target
+
+[Service]
+Type=simple
+User=fvtt
+Group=fvtt
+ExecStart=node $HOME/foundrycore/resources/app/main.js --dataPath=$HOME/foundrydata --noupdate --port=30000 --serviceKey=32kljrekj43kjl3
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+## Create the default webdav config and service file
 
 ```
 cat << EOF > /home/fvtt/webdav/config.yaml
@@ -127,7 +137,28 @@ users:
 EOF
 ```
 
-Create the default options.json file.
+```
+cat << EOF > /etc/systemd/system/webdav.service
+[Unit]
+Description=WebDAV
+After=network.target
+
+[Service]
+Environment="WD_USERNAME=admin-foundry" 'WD_PASSWORD="<REDACTED>"'
+Type=simple
+User=fvtt
+Group=fvtt
+ExecStart=/usr/bin/webdav --config /home/fvtt/webdav/config.yaml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+```
+
+## Create the default options.json file.
 
 ```
 cat <<EOF > /home/fvtt/foundrydata/Config/options.json
@@ -135,7 +166,7 @@ cat <<EOF > /home/fvtt/foundrydata/Config/options.json
     "port": 30000,
     "upnp": false,
     "fullscreen": false,
-    "hostname": "usernamme.foundryserver.com",
+    "hostname": "username.foundryserver.com",
     "routePrefix": null,
     "adminKey": null,
     "sslCert": null,
