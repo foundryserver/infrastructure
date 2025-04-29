@@ -19,16 +19,20 @@ rm -f /home/0-images/fvtt_$VERSION/foundryvtt
 
 # create the fvtt.service file with the following
 
-cat <<EOF >/home/0-images/fvtt_$VERSION/fvtt.service
+cat <<EOF >/home/0-images/fvtt.service
+# Version 1.0.0
 [Unit]
 Description=Fvtt Server
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 User=fvtt
 Group=fvtt
+WorkingDirectory=/home/fvtt/foundrycore
 ExecStart=node /home/fvtt/foundrycore/resources/app/main.js --dataPath=/home/fvtt/foundrydata --noupdate --port=30000 --serviceKey=32kljrekj43kjl3
+ExecStop=/bin/kill -s SIGINT $MAINPID
 Restart=on-failure
 
 [Install]
@@ -58,9 +62,15 @@ fpm -s dir -t deb \
     -v "$VERSION" \
     --description "Fvtt application" \
     --maintainer "Brad K <admin@foundryserver.com>" \
-    --depends "nodejs >= 22.0.0" \
     --after-install postinst.sh \
     --deb-compression gz \
     --package /home/0-images/packages \
     /home/0-images/fvtt_$VERSION/=/home/fvtt/foundrycore \
     ./fvtt.service=/etc/systemd/system/fvtt.service
+
+#Upload to DO
+echo "Uploading to DO"
+s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
+# Set the ACL to public
+echo "Setting ACL to public"
+s3cmd setacl s3://foundry-apt/foundry_${VERSION}_amd64.deb --acl-public --recursive
