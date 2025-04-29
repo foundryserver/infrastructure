@@ -28,8 +28,15 @@ apt autoremove -y
 You will need to make changes to the options file for this work as desired.
 The netselect will help find the fastest mirror to be used.
 
+# Security updates for stable
+
+deb http://security.debian.org/ bookworm-security main contrib non-free non-free-firmware
+
 ```
 netselect-apt -n -o /etc/apt/sources.list
+# Security updates for stable
+echo 'deb http://security.debian.org/ bookworm-security main contrib non-free non-free-firmware' >> /etc/apt/sources.list
+
 sudo dpkg-reconfigure -plow unattended-upgrades
 
 nano /etc/apt/apt.conf.d/50unattended-upgrades

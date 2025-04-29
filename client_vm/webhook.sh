@@ -18,8 +18,9 @@ echo "Running one-time initialization commands..."
 
 # --------------- Webhook Script ---------------
 
-# Set the port based on if it is dev or prod. We know this by finding the file dev or prod.
-if [ -f /home/fvtt/dev ]; then
+# Set the port based on if it is dev or prod. This comes from the env called NODE_ENV
+
+if [ ${NODE_ENV} = "dev" ]; then
     PORT=7070
 else
     PORT=8080
