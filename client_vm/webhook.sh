@@ -80,6 +80,15 @@ done
 if [ $STATUS_CODE -eq 200 ]; then
     echo "Successfully called webhook"
     touch /home/admin/webhook.succeeded
+    # parse the response body to get the json values.
+    # jq is a command-line JSON processor. Install it if not already installed.
+    if ! command -v jq &>/dev/null; then
+        echo "jq could not be found. Please install jq to parse JSON."
+        exit 1
+    fi
+    LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
+    # using sed replace the text "{level}" with the value of $LEVEL
+    sed -i "s/{planlevel}/$LEVEL/g" /etc/environment
     exit 0
 else
     echo "Failed to call webhook after $MAX_ATTEMPTS attempts"

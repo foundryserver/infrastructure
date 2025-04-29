@@ -18,7 +18,7 @@ mkdir /mnt/userdata  #used for nfs transition
 
 ```
 apt update
-apt install htop curl nano qemu-guest-agent cron nfs-common -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq netselect-apt unattended-upgrades apt-listchanges -y
 apt autoremove -y
 
 ```
@@ -29,14 +29,10 @@ You will need to make changes to the options file for this work as desired.
 The netselect will help find the fastest mirror to be used.
 
 ```
-sudo apt install netselect-apt -y
-sudo netselect-apt
-
-
-sudo apt install unattended-upgrades apt-listchanges -y
+netselect-apt -n -o /etc/apt/sources.list
 sudo dpkg-reconfigure -plow unattended-upgrades
 
- nano /etc/apt/apt.conf.d/50unattended-upgrades
+nano /etc/apt/apt.conf.d/50unattended-upgrades
 ```
 
 ## Timezone
@@ -65,7 +61,7 @@ systemctl restart ssh
 ## Setup Swap
 
 ```
-fallocate -l 3.4G /swapfile
+fallocate -l 4G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
@@ -76,26 +72,10 @@ echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 
 ```
 sudo adduser --uid 2000 --shell=/usr/sbin/nologin --disabled-password fvtt
-sudo mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
-sudo mkdir -p /home/fvtt/webdav
-```
+mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
+mkdir -p /home/fvtt/foundrycore
+mkdir -p /home/fvtt/webdav
 
-```
-cat << EOF > /etc/systemd/system/fvtt.service
-[Unit]
-Description=Fvtt Server
-After=network.target
-
-[Service]
-Type=simple
-User=fvtt
-Group=fvtt
-ExecStart=node $HOME/foundrycore/resources/app/main.js --dataPath=$HOME/foundrydata --noupdate --port=30000 --serviceKey=32kljrekj43kjl3
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
 ```
 
 ## Create the default webdav config and service file
@@ -172,7 +152,7 @@ cat <<EOF > /home/fvtt/foundrydata/Config/options.json
     "sslCert": null,
     "sslKey": null,
     "awsConfig": null,
-    "dataPath": "/foundrydata/",
+    "dataPath": "/home/fvtt/foundrydata/",
     "proxySSL": false,
     "proxyPort": 443,
     "world": null,
@@ -182,7 +162,7 @@ cat <<EOF > /home/fvtt/foundrydata/Config/options.json
     "background": false,
     "debug": false,
     "demo": false,
-    "serviceConfig": "/foundrycore/foundryserver.json",
+    "serviceConfig": "/home/fvtt/foundrycore/foundryserver.json",
     "updateChannel": "release"
 }
 EOF
@@ -203,9 +183,6 @@ Now set the perms and cron
 chmod +x /etc/init.d/webhook.sh
 chmod +x /home/fvtt/bandwidth.sh
 chmod +x /home/fvtt/reset_iptables.sh
-chmod +x  /root/setup_cron.sh
-/root/setup_cron.sh
-touch /home/fvtt/level1
 touch /home/fvtt/{dev:prod}
 chown fvtt:fvtt -R /home/fvtt
 ```
