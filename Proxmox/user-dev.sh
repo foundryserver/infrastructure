@@ -12,24 +12,17 @@ echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAi
 chmod 600 /home/admin/.ssh/authorized_keys
 
 # Create the fvtt user and set password.
-useradd -m -s /bin/bash fvtt
-echo "fvtt:kasdkjhasdfkjhsadf987987" | chpasswd
-mkdir -p /home/fvtt/.ssh
-chmod 700 /home/fvtt/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY ansible-client" >>/home/fvtt/.ssh/authorized_keys
-chmod 600 /home/fvtt/.ssh/authorized_keys
+useradd -m -s /sbin/nologin fvtt
 mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
 mkdir -p /home/fvtt/foundrycore
 mkdir -p /home/fvtt/webdav
-touch /home/fvtt/dev
 
 # Do misc setup and config.
 apt update 
-apt install htop curl nano qemu-guest-agent cron -y
+apt install htop curl nano qemu-guest-agent cron netselect-apt -y
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-sudo apt install netselect-apt -y
-sudo netselect-apt -n -o /etc/apt/sources.list
 timedatectl set-timezone America/Vancouver
+netselect-apt -n -o /etc/apt/sources.list
 
 # Setup SSH config.
 cat > /etc/ssh/sshd_config << EOF
@@ -130,7 +123,6 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 systemctl enable fvtt
-systemctl enable fvtt.service
 
 cat > /home/fvtt/foundrydata/Config/options.json << EOF
 {
@@ -162,6 +154,9 @@ EOF
 
 cat > /home/fvtt/bandwidth.sh << EOF 
 #!/bin/bash
+# Version 1.0.0
+# Description: This script monitors bandwidth usage on a specific port (30000) and logs the data.
+# It checks if the bandwidth is below a certain threshold (3000 bytes) over a 3-hour period and shuts down the system if it is.
 
 # Path to the log file that will store bandwidth data
 LOG_FILE="/var/log/bandwidth_log.txt"
@@ -171,8 +166,6 @@ JSON_FILE="/var/log/current_bandwidth.json"
 MIN_BANDWIDTH=3000
 # Port to monitor
 PORT=30000
-# File to indicate package level.  /home/fvtt/level1
-LEVEL_FILE="/home/fvtt/level1"
 
 # Create the log file if it doesn't exist
 if [ ! -f "$LOG_FILE" ]; then
@@ -181,7 +174,7 @@ fi
 
 # Create the JSON file if it doesn't exist
 if [ ! -f "$JSON_FILE" ]; then
-    echo '{"bandwidth": 0}' > "$JSON_FILE"
+    echo '{"bandwidth": 0}' >"$JSON_FILE"
 fi
 
 # Function to get current timestamp
@@ -197,7 +190,7 @@ setup_iptables() {
         iptables -A INPUT -p tcp --dport $PORT -j ACCEPT
         iptables -A INPUT -p udp --dport $PORT -j ACCEPT
     fi
-    
+
     if ! iptables -L OUTPUT -v -n | grep -q "port $PORT"; then
         # Create rules to track outgoing traffic on port 30000
         iptables -A OUTPUT -p tcp --sport $PORT -j ACCEPT
@@ -210,14 +203,14 @@ get_bandwidth() {
     # Get incoming bytes (RX)
     rx_bytes=$(iptables -L INPUT -v -n -x | grep "dpt:$PORT" | awk '{sum += $2} END {print sum}')
     rx_bytes=${rx_bytes:-0}
-    
+
     # Get outgoing bytes (TX)
     tx_bytes=$(iptables -L OUTPUT -v -n -x | grep "spt:$PORT" | awk '{sum += $2} END {print sum}')
     tx_bytes=${tx_bytes:-0}
-    
+
     # Sum of bytes
     total_bytes=$((rx_bytes + tx_bytes))
-    
+
     echo $total_bytes
 }
 
@@ -225,13 +218,13 @@ get_bandwidth() {
 log_bandwidth() {
     timestamp=$(get_timestamp)
     current_bandwidth=$(get_bandwidth)
-    
+
     # Log with timestamp
-    echo "$timestamp,$current_bandwidth" >> "$LOG_FILE"
-    
+    echo "$timestamp,$current_bandwidth" >>"$LOG_FILE"
+
     # Update JSON file
-    echo "{\"bandwidth\": $current_bandwidth}" > "$JSON_FILE"
-    
+    echo "{\"bandwidth\": $current_bandwidth}" >"$JSON_FILE"
+
     echo "Logged bandwidth: $current_bandwidth bytes at $timestamp"
 }
 
@@ -239,17 +232,17 @@ log_bandwidth() {
 has_enough_history() {
     # Get the oldest entry timestamp
     oldest_entry=$(head -n 1 "$LOG_FILE" | cut -d',' -f1)
-    
+
     # If file is empty, we don't have enough history
     if [ -z "$oldest_entry" ]; then
         return 1
     fi
-    
+
     # Calculate how many hours of history we have
     current_time=$(date +%s)
     oldest_time=$(date -d "$oldest_entry" +%s)
-    hours_diff=$(( ($current_time - $oldest_time) / 3600 ))
-    
+    hours_diff=$((($current_time - $oldest_time) / 3600))
+
     # Return success if we have at least 3 hours of history
     [ $hours_diff -ge 3 ]
 }
@@ -264,18 +257,18 @@ check_bandwidth_threshold() {
 
     # Calculate the timestamp from 3 hours ago
     three_hours_ago=$(date -d '3 hours ago' "+%Y-%m-%d %H:%M:%S")
-    
+
     # Sum up bandwidth data from the last 3 hours
     bandwidth_sum=$(awk -v date="$three_hours_ago" '
         BEGIN { FS="," }
         $1 >= date { sum += $2 }
         END { print sum }
     ' "$LOG_FILE")
-    
+
     bandwidth_sum=${bandwidth_sum:-0}
-    
+
     echo "Total bandwidth in last 3 hours: $bandwidth_sum bytes"
-         
+
     # Compare with threshold
     if [ "$bandwidth_sum" -lt "$MIN_BANDWIDTH" ]; then
         echo "Bandwidth of $bandwidth_sum is below threshold ($MIN_BANDWIDTH bytes). Shutting down system."
@@ -287,7 +280,7 @@ check_bandwidth_threshold() {
 # Main execution
 setup_iptables
 log_bandwidth
-if [ -f "$LEVEL_FILE" ]; then
+if [ "$LEVEL" = "1" ]; then
     check_bandwidth_threshold
 fi
 
@@ -297,7 +290,7 @@ EOF
 
 cat > /home/fvtt/reset_iptables.sh << EOF 
 #!/bin/bash
-
+# Version 1.0.0
 # Script to reset iptables byte counters but retain rules
 # This will be run once per month via cron
 
@@ -313,17 +306,18 @@ get_timestamp() {
 }
 
 # Record timestamp of reset
-echo "$(get_timestamp) - Resetting iptables counters for port $PORT" >> "$LOG_FILE"
+echo "$(get_timestamp) - Resetting iptables counters for port $PORT" >>"$LOG_FILE"
 
 # Reset counters by using iptables-save/restore which preserves rules but resets counters
-iptables-save > /tmp/iptables.rules
-iptables-restore < /tmp/iptables.rules
+iptables-save >/tmp/iptables.rules
+iptables-restore </tmp/iptables.rules
 rm -f /tmp/iptables.rules
 
-echo "$(get_timestamp) - iptables counters reset successfully" >> "$LOG_FILE"
+echo "$(get_timestamp) - iptables counters reset successfully" >>"$LOG_FILE"
 
 # Exit with success status
 exit 0
+
 EOF
 
 # This script sets up the cron jobs for bandwidth monitoring and monthly counter resets

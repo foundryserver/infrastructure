@@ -1,0 +1,11 @@
+# System wide env values
+
+############ Foundry Server #########################
+
+WD_USERNAME=admin\*foundry
+WD_PASSWORD=asdfk4398djDFGjas934GH89
+
+LEVEL=1
+NODE_ENV=prod
+
+####################################################

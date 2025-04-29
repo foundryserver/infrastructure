@@ -18,7 +18,7 @@ mkdir /mnt/userdata  #used for nfs transition
 
 ```
 apt update
-apt install htop curl nano qemu-guest-agent cron nfs-common rsync -y
+apt install htop curl nano qemu-guest-agent cron nfs-common -y
 apt autoremove -y
 
 ```
