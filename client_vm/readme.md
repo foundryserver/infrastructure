@@ -18,7 +18,7 @@ mkdir /mnt/userdata  #used for nfs transition
 
 ```
 apt update
-apt install htop curl nano qemu-guest-agent cron nfs-common jq netselect-apt unattended-upgrades apt-listchanges -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq netselect-apt unattended-upgrades apt-listchanges s3cmd -y
 apt autoremove -y
 
 ```
