@@ -16,29 +16,6 @@ timedatectl set-timezone America/Vancouver
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
 ```
 
-## User Setup
-
-The working user will be added when the install happens. We just need to modify it afterwards to make it use ssh etc.
-
-```
-gpasswd -a brad sudo
-echo "brad  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-mkdir /home/brad/.ssh
-echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25" >> /home/brad/.ssh/authorized_keys
-chmod 700 -R /home/brad/.ssh
-chmod 600 /home/brad/.ssh/authorized_keys
-chown -R brad:brad /home/brad/
-```
-
-## Setup Data Disk
-
-```
-echo -e "nn\np\n1\n\n\nw" | fdisk /dev/sdb
-mkdir /data
-mount -t xfs /dev/sdb1 /data
-echo "/dev/sdb1  /data  xfs  defaults,noatime  0 2" | sudo tee -a /etc/fstab
-```
-
 ## Install Influx db v2
 
 ```
@@ -55,7 +32,20 @@ echo "943666881a1b8d9b849b74caebf02d3465d6beb716510d86a39f6c8e8dac7515  influxda
 # Install influxdb
 apt-get update && apt-get install influxdb2 -y
 
+# Create directory on your data disk (assuming mounted at /data)
+sudo mkdir -p /data/influxdb
+# Set proper ownership
+sudo chown -R influxdb:influxdb /data/influxdb
+
+# Create custom config file
+sudo tee /etc/influxdb/config.toml <<EOF
+bolt-path = "/data/influxdb/influxd.bolt"
+engine-path = "/data/influxdb/engine"
+EOF
+
+
 service influxdb start
+systemctl enable influxdb
 service influxdb status
 ```
 
@@ -66,15 +56,23 @@ sudo apt-get install -y adduser libfontconfig1 musl
 wget https://dl.grafana.com/oss/release/grafana_11.5.2_amd64.deb
 sudo dpkg -i grafana_11.5.2_amd64.deb
 
+systemctl daemon-reload
 systemctl enable  grafana-server
 systemctl start  grafana-server
-
+systemctl status grafana-server
 ```
 
 ## Install Prometheus
 
 ```
 apt-get install prometheus -y
+```
+
+Setup data dir
+
+```
+mkdir /data/prometheus
+chown prometheus:prometheus /data/prometheus
 ```
 
 This will set the data drive and retention
@@ -123,5 +121,136 @@ SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable prometheus
+systemctl restart prometheus
+systemctl status prometheus
+```
+
+Setup Scrape Configs
+
+```
+cat > /etc/prometheus/prometheus.yml <<EOF
+
+# Sample config for Prometheus.
+
+global:
+  scrape_interval:     30s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 30s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+  # Attach these labels to any time series or alerts when communicating with
+  # external systems (federation, remote storage, Alertmanager).
+  external_labels:
+      monitor: 'example'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets: ['localhost:9093']
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+    scrape_timeout: 5s
+
+    # metrics_path defaults to '/metrics'
+    # scheme defaults to 'http'.
+
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'ceph'
+    honor_labels: true
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['pve0.mgmt.local:9283', 'pve1.mgmt.local:9283','pve2.mgmt.local:9283','pve3.mgmt.local:9283']
+        labels:
+          ceph_cluster: 'Foundry-cluster'
+EOF
+
+systemctl restart prometheus
+systemctl status prometheus
+
+```
+
+## Setting Up idrac Redfish API Exporter.
+
+https://github.com/mrlhansen/idrac_exporter?tab=readme-ov-file
+
+Install GO
+
+```
+cd ~
+wget https://go.dev/dl/go1.24.2.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.24.2.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+```
+
+Compile Exporter
+
+```
+go install github.com/mrlhansen/idrac_exporter/cmd/idrac_exporter@latest
+```
+
+Setup Scrape Points
+
+```
+cat > /etc/prometheus/idrac.yml <<EOF
+
+address: 127.0.0.1 # Listen address
+port: 9348         # Listen port
+timeout: 10        # HTTP timeout (in seconds) for Redfish API calls
+hosts:
+  pve0.oob.local:
+    username: exporter
+    password: <redacted>
+  pve1.oob.local:
+    username: exporter
+    password: <redacted>
+  pve2.oob.local:
+    username: exporter
+    password: <redacted>
+  pve3.oob.local:
+    username: exporter
+    password: <redacted>
+  nfs1.oob.local:
+    username: exporter
+    password: <redacted>
+  nfs2.oob.local:
+    username: exporter
+    password: <redacted>
+  backup1.oob.local:
+    username: exporter
+    password: <redacted>
+  spare0.oob.local:
+    username: exporter
+    password: <redacted>
+  spare1.oob.local:
+    username: exporter
+    password: <redacted>
+
+metrics:
+  system: true
+  sensors: true
+  power: true
+  events: true
+  storage: true
+  memory: true
+  network: true
+
 EOF
 ```
