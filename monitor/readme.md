@@ -180,6 +180,17 @@ scrape_configs:
       - targets: ['pve0.mgmt.local:9283', 'pve1.mgmt.local:9283','pve2.mgmt.local:9283','pve3.mgmt.local:9283']
         labels:
           ceph_cluster: 'Foundry-cluster'
+
+  - job_name: idrac
+    static_configs:
+      - targets: ['pve0.oob.local', 'pve1.oob.local','pve2.oob.local','pve3.oob.local','nfs1.oob.local','nfs2.oob.local','backup1.oob.local','spare0.oob.local','spare1.oob.local']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9348
 EOF
 
 systemctl restart prometheus
@@ -202,8 +213,33 @@ export PATH=$PATH:/usr/local/go/bin
 
 Compile Exporter
 
+This creates a binary in the folder go/bin/idrac_exporter You will need to move this to /usr/bin and create a systemd file.
+
 ```
 go install github.com/mrlhansen/idrac_exporter/cmd/idrac_exporter@latest
+
+cp go/bin/idrac_exporter /usr/bin
+
+cat > /etc/systemd/system/idrac-exporter.service << EOF
+[Unit]
+Description=idrac-exporter
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/idrac_exporter
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+systemctl daemon-reload
+systemctl enable --now idrac-exporter
+systemctl status idrac-exporter
+
 ```
 
 Setup Scrape Points
