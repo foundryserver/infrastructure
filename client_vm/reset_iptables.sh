@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Version 1.0.0
 # Script to reset iptables byte counters but retain rules
 # This will be run once per month via cron
 
@@ -15,14 +15,14 @@ get_timestamp() {
 }
 
 # Record timestamp of reset
-echo "$(get_timestamp) - Resetting iptables counters for port $PORT" >> "$LOG_FILE"
+echo "$(get_timestamp) - Resetting iptables counters for port $PORT" >>"$LOG_FILE"
 
 # Reset counters by using iptables-save/restore which preserves rules but resets counters
-iptables-save > /tmp/iptables.rules
-iptables-restore < /tmp/iptables.rules
+iptables-save >/tmp/iptables.rules
+iptables-restore </tmp/iptables.rules
 rm -f /tmp/iptables.rules
 
-echo "$(get_timestamp) - iptables counters reset successfully" >> "$LOG_FILE"
+echo "$(get_timestamp) - iptables counters reset successfully" >>"$LOG_FILE"
 
 # Exit with success status
 exit 0

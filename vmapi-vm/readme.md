@@ -110,3 +110,11 @@ sudo curl -fsSL https://tailscale.com/install.sh | sh
 ```
 tailscale up --auth-key=<redacted>
 ```
+
+## Foundry Source
+
+You will need a directory at /home/admin/fvtt and each sub dir will be the version # of the fvtt application. i.e. 6.78.
+
+## Ansible SSH
+
+In order for this to work we need the ansible private key on this node so we can scp the files to the players vm.

@@ -1,4 +1,8 @@
 {
+    "cSpell.words": [
+        "unnessary"
+    ]
+}{
     "github.copilot.enable": {
         "*": true,
         "plaintext": false,

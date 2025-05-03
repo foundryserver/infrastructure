@@ -18,8 +18,9 @@ echo "Running one-time initialization commands..."
 
 # --------------- Webhook Script ---------------
 
-# Set the port based on if it is dev or prod. We know this by finding the file dev or prod.
-if [ -f /home/fvtt/dev ]; then
+# Set the port based on if it is dev or prod. This comes from the env called NODE_ENV
+
+if [ ${NODE_ENV} = "dev" ]; then
     PORT=7070
 else
     PORT=8080
@@ -80,6 +81,15 @@ done
 if [ $STATUS_CODE -eq 200 ]; then
     echo "Successfully called webhook"
     touch /home/admin/webhook.succeeded
+    # parse the response body to get the json values.
+    # jq is a command-line JSON processor. Install it if not already installed.
+    if ! command -v jq &>/dev/null; then
+        echo "jq could not be found. Please install jq to parse JSON."
+        exit 1
+    fi
+    LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
+    # using sed replace the text "{level}" with the value of $LEVEL
+    sed -i "s/{planlevel}/$LEVEL/g" /etc/environment
     exit 0
 else
     echo "Failed to call webhook after $MAX_ATTEMPTS attempts"
