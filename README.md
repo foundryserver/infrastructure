@@ -18,15 +18,9 @@ useradd -m -s /bin/bash sam
 gpasswd -a sam sudo
 echo "sam  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 mkdir /home/sam/.ssh
-echo "" >> /home/sam/.ssh/authorized_keys
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKYKACab7beJFn504pCw3QUb7083dKyakRBmIuyqe9PB soc@eaunoire.com" >> /home/sam/.ssh/authorized_keys
 chmod 700 -R /home/sam/.ssh
 chmod 600 /home/sam/.ssh/authorized_keys
 chown -R sam:sam /home/sam/
-
-
-
-
-
-
 
 ```
