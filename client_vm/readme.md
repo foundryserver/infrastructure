@@ -82,7 +82,6 @@ sudo adduser --uid 2000 --shell=/usr/sbin/nologin --disabled-password fvtt
 mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
 mkdir -p /home/fvtt/foundrycore
 mkdir -p /home/fvtt/webdav
-
 ```
 
 ## Create the default webdav config and service file
@@ -194,6 +193,17 @@ touch /home/fvtt/{dev:prod}
 chown fvtt:fvtt -R /home/fvtt
 ```
 
+## Install Nodejs binary
+
+```
+cd ~
+wget https://nodejs.org/download/release/latest/node-v24.0.0-linux-x64.tar.gz
+tar -xzf node-v24.0.0-linux-x64.tar.gz
+mv ~/node-v24.0.0-linux-x64/bin/node /usr/bin
+rm -rf node-v24.0.0-linux-x64*
+node --version
+```
+
 ## Debian Reset VM for templating
 
 ```
@@ -220,6 +230,8 @@ sudo rm -f /etc/network/interfaces.d/*
 sudo rm -f /etc/netplan/*
 
 sudo rm ~/.bash_history
+
+sudo rm -rf /home/fvtt/foundrycore/*
 
 # Shutdown the VM
 sudo shutdown -h now
