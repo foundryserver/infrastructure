@@ -175,15 +175,15 @@ scrape_configs:
 
   - job_name: 'ceph'
     honor_labels: true
-    scrape_interval: 30s
+    scrape_interval: 15s
     static_configs:
-      - targets: ['pve0.mgmt.local:9283', 'pve1.mgmt.local:9283','pve2.mgmt.local:9283','pve3.mgmt.local:9283']
+      - targets: ['pve0.mgmt.local:9283', 'pve1.mgmt.local:9283']
         labels:
           ceph_cluster: 'Foundry-cluster'
 
-  - job_name: idrac
+  - job_name: 'idrac'
     static_configs:
-      - targets: ['pve0.oob.local', 'pve1.oob.local','pve2.oob.local','pve3.oob.local','nfs1.oob.local','nfs2.oob.local','backup1.oob.local','spare0.oob.local','spare1.oob.local']
+      - targets: ['10.90.90.20','10.90.90.21','10.90.90.22','10.90.90.23','10.90.90.24','10.90.90.25','10.90.90.26','10.90.90.27','10.90.90.28']
     relabel_configs:
       - source_labels: [__address__]
         target_label: __param_target
@@ -191,6 +191,22 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: localhost:9348
+
+  - job_name: 'snmp'
+    static_configs:
+      - targets: ['pve0.oob.local', 'pve1.oob.local','pve2.oob.local','pve3.oob.local','nfs1.oob.local','nfs2.oob.local','backup1.oob.local','spare0.oob.local','spare1.oob.local']
+    metrics_path: /snmp
+    params:
+      auth: [public_v2]
+      module: [dell_idrac]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 127.0.0.1:9116  # The SNMP exporter's real hostname:port.
+
 EOF
 
 systemctl restart prometheus
@@ -227,7 +243,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=prometheus
 ExecStart=/usr/bin/idrac_exporter
 Restart=on-failure
 
@@ -251,31 +267,31 @@ address: 127.0.0.1 # Listen address
 port: 9348         # Listen port
 timeout: 10        # HTTP timeout (in seconds) for Redfish API calls
 hosts:
-  pve0.oob.local:
+  10.90.90.20
     username: exporter
     password: <redacted>
-  pve1.oob.local:
+  10.90.90.21
     username: exporter
     password: <redacted>
-  pve2.oob.local:
+  10.90.90.22
     username: exporter
     password: <redacted>
-  pve3.oob.local:
+  10.90.90.23
     username: exporter
     password: <redacted>
-  nfs1.oob.local:
+  10.90.90.24
     username: exporter
     password: <redacted>
-  nfs2.oob.local:
+  10.90.90.25
     username: exporter
     password: <redacted>
-  backup1.oob.local:
+  10.90.90.26
     username: exporter
     password: <redacted>
-  spare0.oob.local:
+  10.90.90.27
     username: exporter
     password: <redacted>
-  spare1.oob.local:
+  10.90.90.28
     username: exporter
     password: <redacted>
 
@@ -289,4 +305,43 @@ metrics:
   network: true
 
 EOF
+```
+
+## SNMP Exporter
+
+https://github.com/prometheus/snmp_exporter
+https://github.com/billykwooten/idrac_promethus_snmp_module
+
+```
+wget https://github.com/prometheus/snmp_exporter/releases/download/v0.29.0/snmp_exporter-0.29.0.linux-amd64.tar.gz
+tar -xzf snmp_exporter-0.29.0.linux-amd64.tar.gz
+cd snmp_exporter-0.29.0.linux-amd64
+cp snmp_exporter /usr/bin
+cp snmp.yaml /etc/prometheus/snmp_exporter/
+
+
+cat > /etc/systemd/system/snmp-exporter.service << EOF
+[Unit]
+Description=SNMP Exporter
+After=network-online.target
+
+# This assumes you are running snmp_exporter under the user "prometheus"
+
+[Service]
+User=prometheus
+Restart=on-failure
+ExecStart=/usr/bin/snmp_exporter --config.file=/etc/prometheus/snmp_exporter/snmp.yml
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+
+
+
+systemctl daemon-reload
+systemctl enable --now snmp-exporter
+systemctl status snmp-exporter
+
+
 ```

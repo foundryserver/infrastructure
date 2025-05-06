@@ -58,6 +58,8 @@ ceph config set mgr mgr/alerts/interval "5m"
 ceph mgr module enable prometheus
 ceph config set mgr mgr/prometheus/server_addr 0.0.0.0
 ceph config set mgr mgr/prometheus/server_port 9283
-ceph config set mgr mgr/prometheus/scrape_interval 30
+ceph config set mgr mgr/prometheus/scrape_interval 15
 ceph config set mgr mgr/prometheus/rbd_stats_pools "*"
+ceph config set mgr mgr/prometheus/exclude_perf_counters false
+
 ```

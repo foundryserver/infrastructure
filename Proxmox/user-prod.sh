@@ -2,7 +2,7 @@
 
 # Create ADMIN user and set password.
 useradd -m -s /bin/bash admin
-echo "admin:<redacted>" | chpasswd
+echo "admin:<redacted" | chpasswd
 usermod -aG sudo admin
 echo "admin ALL=(ALL) NOPASSWD: ALL" >>/etc/sudoers
 mkdir -p /home/admin/.ssh
@@ -10,6 +10,7 @@ chmod 700 /home/admin/.ssh
 echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25" >>/home/admin/.ssh/authorized_keys
 echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY ansible-client" >>/home/admin/.ssh/authorized_keys
 chmod 600 /home/admin/.ssh/authorized_keys
+chown -R admin:admin /home/admin/.ssh
 
 # Create the fvtt user and set password.
 useradd -m -s /bin/bash fvtt
