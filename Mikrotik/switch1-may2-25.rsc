@@ -1,4 +1,4 @@
-# 2025-03-04 17:25:33 by RouterOS 7.17
+# 2025-05-02 19:21:32 by RouterOS 7.17
 # software id = B81L-RYRR
 #
 # model = CRS317-1G-16S+
@@ -9,14 +9,15 @@ add admin-mac=D4:01:C3:1D:92:F1 auto-mac=no name=bridge port-cost-mode=short \
 /interface ethernet
 set [ find default-name=ether1 ] comment="OOB Mgmt" name=ether1_oob
 set [ find default-name=sfp-sfpplus10 ] disabled=yes
-set [ find default-name=sfp-sfpplus11 ] disabled=yes
-set [ find default-name=sfp-sfpplus12 ] disabled=yes
-set [ find default-name=sfp-sfpplus13 ] disabled=yes
-set [ find default-name=sfp-sfpplus14 ] comment="Uplink RB5009-1"
-set [ find default-name=sfp-sfpplus15 ] comment="Switch Bonding 1" disabled=\
+set [ find default-name=sfp-sfpplus11 ] comment="tailscale 1 - rpi"
+set [ find default-name=sfp-sfpplus12 ] comment="tailscale 2 - rpi"
+set [ find default-name=sfp-sfpplus13 ] comment="Uplink RB5009-2"
+set [ find default-name=sfp-sfpplus14 ] comment="Uplink RB5009-1" disabled=\
     yes
-set [ find default-name=sfp-sfpplus16 ] comment="Switch Bonding 2" disabled=\
-    yes
+set [ find default-name=sfp-sfpplus15 ] comment="ISP 1" disabled=yes
+set [ find default-name=sfp-sfpplus16 ] comment="ISP 0"
+/interface vlan
+add interface=bridge name=vlan30 vlan-id=30
 /ip smb users
 set [ find default=yes ] disabled=yes
 /port
@@ -34,20 +35,36 @@ add bridge=bridge interface=sfp-sfpplus7
 add bridge=bridge interface=sfp-sfpplus8
 add bridge=bridge interface=sfp-sfpplus9
 add bridge=bridge interface=sfp-sfpplus14
+add bridge=bridge interface=*2C
+add bridge=bridge interface=sfp-sfpplus12
+add bridge=bridge interface=sfp-sfpplus11
+add bridge=bridge interface=sfp-sfpplus13
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged \
+    interface=sfp-sfpplus15 pvid=30
+add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged \
+    interface=sfp-sfpplus16 pvid=30
+add bridge=bridge interface=sfp-sfpplus10
 /ip firewall connection tracking
 set udp-timeout=10s
 /interface bridge vlan
 add bridge=bridge tagged="sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3,sfp-sfpplus4,\
     sfp-sfpplus5,sfp-sfpplus14,sfp-sfpplus6,sfp-sfpplus7,sfp-sfpplus8,sfp-sfpp\
-    lus9" vlan-ids=10
+    lus9,sfp-sfpplus12,sfp-sfpplus11,sfp-sfpplus13,bridge,sfp-sfpplus10" \
+    vlan-ids=10
 add bridge=bridge tagged="sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3,sfp-sfpplus4,\
     sfp-sfpplus5,sfp-sfpplus14,sfp-sfpplus6,sfp-sfpplus7,sfp-sfpplus8,sfp-sfpp\
-    lus9" vlan-ids=20
+    lus9,sfp-sfpplus12,sfp-sfpplus11,sfp-sfpplus13,bridge,sfp-sfpplus10" \
+    vlan-ids=20
+add bridge=bridge comment=pubic tagged="sfp-sfpplus1,sfp-sfpplus2,sfp-sfpplus3\
+    ,sfp-sfpplus4,sfp-sfpplus5,sfp-sfpplus6,sfp-sfpplus7,sfp-sfpplus8,sfp-sfpp\
+    lus9,sfp-sfpplus10,sfp-sfpplus11,sfp-sfpplus12,sfp-sfpplus13,sfp-sfpplus14\
+    ,bridge" untagged=sfp-sfpplus16,sfp-sfpplus15 vlan-ids=30
 /interface ovpn-server server
 add mac-address=FE:3B:75:A9:F2:7E name=ovpn-server1
 /ip address
 add address=10.90.90.4/24 comment="OOB IP Address" interface=ether1_oob \
     network=10.90.90.0
+add address=38.186.49.185/28 interface=vlan30 network=38.186.49.176
 /ip dns
 set servers=1.1.1.1,8.8.8.8
 /ip firewall filter
