@@ -58,7 +58,9 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
     # Call webhook and capture status code and response body
     RESPONSE=$(curl -s -w "%{http_code}" -X POST $URL \
         -H "Authorization: Bearer $HASH" \
-        -d "ip=$IP_ADDRESS&username=$USERNAME")
+        -d "ip=$IP_ADDRESS&username=$USERNAME" \
+        --connect-timeout 5 \
+        --max-time 30)
 
     # Extract status code (last 3 characters of the response)
     STATUS_CODE=$(echo "$RESPONSE" | tail -c 4)
