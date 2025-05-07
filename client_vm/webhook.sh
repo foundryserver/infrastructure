@@ -49,12 +49,17 @@ IP_ADDRESS=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
 # Using sed replace the text "username" with the value of $USERNAME in the file
 sed -i "s/username/$USERNAME/g" /home/fvtt/foundrydata/Config/options.json
 
+# Install the latest foundry version.
+echo "Installing the latest Foundry version..."
+curl -s https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb | sudo bash -c "cat > /tmp/pkg.deb && dpkg --debug=3 -i /tmp/pkg.deb && rm /tmp/pkg.deb"
+
 # Initialize counter and status code
 ATTEMPTS=0
 MAX_ATTEMPTS=4
 STATUS_CODE=0
 
 # Try webhook call until success or max attempts reached
+echo "Attempting to call webhook..."
 while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
     # Increment attempts counter
     ((ATTEMPTS++))
@@ -104,6 +109,7 @@ if [ $STATUS_CODE -eq 200 ]; then
         exit 1
     fi
 
+    echo "Setting up environment variables..."
     LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
     sed -i "s/planlevel/$LEVEL/g" /etc/environment
     exit 0

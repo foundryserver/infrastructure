@@ -64,6 +64,8 @@ fpm -s dir -t deb \
     --maintainer "Brad K <admin@foundryserver.com>" \
     --after-install postinst.sh \
     --deb-compression gz \
+    --deb-user fvtt \
+    --deb-group fvtt \
     --package /home/0-images/packages \
     /home/0-images/fvtt_$VERSION/=/home/fvtt/foundrycore \
     ./fvtt.service=/etc/systemd/system/fvtt.service
