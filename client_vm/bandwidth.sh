@@ -118,7 +118,7 @@ check_bandwidth_threshold() {
     if [ "$bandwidth_sum" -lt "$MIN_BANDWIDTH" ]; then
         echo "Bandwidth of $bandwidth_sum is below threshold ($MIN_BANDWIDTH bytes). Shutting down system."
         rm -f "$LOG_FILE"
-        # /sbin/poweroff
+        /sbin/poweroff
     fi
 }
 
