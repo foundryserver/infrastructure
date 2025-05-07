@@ -6,7 +6,8 @@ if [ $# -eq 0 ]; then
     echo "No arguments provided. Please provide the FVTT version."
     exit 1
 fi
-VERSION=$1
+LATEST=$1
+VERSION=$2
 
 # Remove unnecessary files
 find /home/0-images/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
@@ -57,21 +58,16 @@ cat <<EOF >/home/0-images/fvtt_$VERSION/hostlicense/foundryserver.json
 EOF
 
 # Create the package using fpm
-fpm -s dir -t deb \
-    -n "foundry" \
-    -v "$VERSION" \
-    --description "Fvtt application" \
-    --maintainer "Brad K <admin@foundryserver.com>" \
-    --after-install postinst.sh \
-    --deb-compression gz \
-    --deb-user fvtt \
-    --deb-group fvtt \
-    --package /home/0-images/packages \
-    /home/0-images/fvtt_$VERSION/=/home/fvtt/foundrycore \
-    ./fvtt.service=/etc/systemd/system/fvtt.service
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package /home/0-images/packages /home/0-images/fvtt_$VERSION/=/home/fvtt/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
+
+if [ $LATEST == true ]; then
+    s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
+    s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
+fi
 
 #Upload to DO
 echo "Uploading to DO"
+# Upload latest package to DO Spaces
 s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
 # Set the ACL to public
 echo "Setting ACL to public"
