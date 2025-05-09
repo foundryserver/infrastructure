@@ -8,5 +8,6 @@ WD_USERNAME=admin\*foundry
 WD_PASSWORD=
 
 LEVEL=planlevel
+NODE_ENV={dev/prod}
 
 ####################################################
