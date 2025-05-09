@@ -51,7 +51,7 @@ sed -i "s/username/$USERNAME/g" /home/fvtt/foundrydata/Config/options.json
 
 # Install the latest foundry version.
 echo "Installing the latest Foundry version..."
-curl -s https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb | sudo bash -c "cat > /tmp/pkg.deb && dpkg --debug=3 -i /tmp/pkg.deb && rm /tmp/pkg.deb"
+curl -s https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb | sudo bash -c "cat > /tmp/pkg.deb && dpkg -i /tmp/pkg.deb && rm /tmp/pkg.deb"
 
 # Initialize counter and status code
 ATTEMPTS=0

@@ -1,11 +1,12 @@
+# CHANGELOG
+
+1.0.2 May 9, 25 - Initial Entry
+
+================================================================================================================
+
 # Setup of Base image for Customer VM
 
-This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host.
-
-- pve0 -> uuid: 10000
-- pve1 -> uuid: 10010
-- pve2 -> uuid: 10020
-- pve3 -> uuid: 10030
+This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you update the .env file to reflect this.
 
 ## Bash Setup
 
@@ -20,7 +21,6 @@ mkdir /mnt/userdata  #used for nfs transition
 apt update
 apt install htop curl nano qemu-guest-agent cron nfs-common jq netselect-apt unattended-upgrades apt-listchanges s3cmd -y
 apt autoremove -y
-
 ```
 
 ## Automated Updates
@@ -180,8 +180,7 @@ EOF
 2. bandwidth.sh - this file is located at /home/fvtt/bandwidth.sh
 3. reset_iptables.sh - this file is located at /home/fvtt/reset_iptables.sh
 4. setup_cron.sh - this file is located at /root
-5. levelx - this file is located at /home/fvtt/levelx
-6. dev/prod - this file is located at /home/fvtt/{dev:prod}
+5. dev/prod - this file is located at /home/fvtt/{dev:prod}
 
 Now set the perms and cron
 
