@@ -83,11 +83,10 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
 
     # Extract status code (last 3 characters of the response)
     STATUS_CODE=$(echo "$RESPONSE" | tail -c 4)
+    echo "Response status code: $STATUS_CODE"
 
     # Extract response body (all but the last 3 characters)
     RESPONSE_BODY=$(echo "$RESPONSE" | head -c -4)
-
-    echo "Response status code: $STATUS_CODE"
     echo "Response body: $RESPONSE_BODY"
 
     # If not successful, wait 5 seconds before next attempt
@@ -99,19 +98,22 @@ done
 
 # Check if we succeeded
 if [ $STATUS_CODE -eq 200 ]; then
-    echo "Successfully called webhook"
-    rm -f /home/admin/webhook.running
-    touch /home/admin/webhook.succeeded
 
     # Parse the response body to get the JSON values
     if ! command -v jq &>/dev/null; then
         echo "jq could not be found. Please install jq to parse JSON."
+        rm -f /home/admin/webhook.running
+        touch /home/admin/webhook.failed
         exit 1
     fi
 
     echo "Setting up environment variables..."
     LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
     sed -i "s/planlevel/$LEVEL/g" /etc/environment
+
+    echo "Successfully called webhook"
+    rm -f /home/admin/webhook.running
+    touch /home/admin/webhook.succeeded
     exit 0
 else
     echo "Failed to call webhook after $MAX_ATTEMPTS attempts"
