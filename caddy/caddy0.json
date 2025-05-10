@@ -20,41 +20,6 @@
                             "handler": "file_server",
                             "hide": ["/etc/caddy/Caddyfile"],
                             "index_names": ["/5xx_error.html"],
-                            "root": "/usr/share/caddy/error_pages/foundryserver"
-                          }
-                        ],
-                        "match": [
-                          {
-                            "expression": "{http.error.status_code} \u003e= 500 \u0026\u0026 {http.error.status_code} \u003c= 599"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ],
-                "match": [
-                  {
-                    "host": [
-                      "foundryserver.ca",
-                      "www.foundryserver.ca",
-                      "helcim.foundryserver.ca",
-                      "max.foundryserver.ca"
-                    ]
-                  }
-                ],
-                "terminal": true
-              },
-              {
-                "handle": [
-                  {
-                    "handler": "subroute",
-                    "routes": [
-                      {
-                        "handle": [
-                          {
-                            "handler": "file_server",
-                            "hide": ["/etc/caddy/Caddyfile"],
-                            "index_names": ["/5xx_error.html"],
                             "root": "/usr/share/caddy/error_pages/game_servers"
                           }
                         ],
@@ -67,7 +32,9 @@
                     ]
                   }
                 ],
-                "match": [{ "host": ["*.foundryserver.ca"] }],
+                "match": [
+                  { "host": ["*.foundryserver.ca", "*.foundrycollege.net", "*.foundryserver.com", "*.knorrfamily.org"] }
+                ],
                 "terminal": true
               }
             ]
