@@ -1,0 +1,2 @@
+# Run the HTTP monitor script every minute
+* * * * * /bin/bash /root/monitor.sh >> /var/log/http_monitor_cron.log 2>&1
