@@ -190,6 +190,7 @@ chmod +x /home/fvtt/bandwidth.sh
 chmod +x /home/fvtt/reset_iptables.sh
 touch /home/fvtt/{dev:prod}
 chown fvtt:fvtt -R /home/fvtt
+update-rc.d webhook.sh defaults  # make webhook.sh run at boot.
 ```
 
 ## Install Nodejs binary

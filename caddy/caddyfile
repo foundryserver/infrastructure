@@ -13,12 +13,11 @@
 # Global server settings
 {
 	debug
-	http_port 8080
-	https_port 8443
+	http_port 80
+	https_port 443
 	metrics
-
+	default_bind 38.186.49.185
 	admin 192.168.0.2:4334
-
 	email admin@foundryserver.com
 }
 

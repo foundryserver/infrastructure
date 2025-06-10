@@ -1,237 +1,552 @@
 {
-  "admin": { "listen": "192.168.0.3:4334" },
-  "apps": {
-    "http": {
-      "http_port": 80,
-      "https_port": 443,
-      "metrics": {},
-      "servers": {
-        "srv0": {
-          "errors": {
-            "routes": [
-              {
-                "handle": [
-                  {
-                    "handler": "subroute",
-                    "routes": [
-                      {
-                        "handle": [
-                          {
-                            "handler": "file_server",
-                            "hide": ["/etc/caddy/Caddyfile"],
-                            "index_names": ["/5xx_error.html"],
-                            "root": "/usr/share/caddy/error_pages/game_servers"
-                          }
-                        ],
-                        "match": [
-                          {
-                            "expression": "{http.error.status_code} \u003e= 500 \u0026\u0026 {http.error.status_code} \u003c= 599"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ],
-                "match": [
-                  { "host": ["*.foundryserver.ca", "*.foundrycollege.net", "*.foundryserver.com", "*.knorrfamily.org"] }
-                ],
-                "terminal": true
-              }
-            ]
-          },
-          "listen": ["38.186.49.186:443"],
-          "routes": [
-            {
-              "handle": [
-                {
-                  "handler": "subroute",
-                  "routes": [
-                    {
-                      "@id": "foundryserver.ca",
-                      "handle": [
-                        {
-                          "destinations": ["{backend_ip}"],
-                          "handler": "map",
-                          "mappings": [],
-                          "source": "{http.request.host}"
-                        },
-                        {
-                          "handler": "subroute",
-                          "routes": [
-                            {
-                              "match": [
-                                {
-                                  "path": ["/webdav/*"]
-                                }
-                              ],
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:3030" }]
-                                }
-                              ]
-                            },
-                            {
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "stream_close_delay": 28800000000000,
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:30000" }]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "@id": "foundryserver.com",
-                      "handle": [
-                        {
-                          "destinations": ["{backend_ip}"],
-                          "handler": "map",
-                          "mappings": [],
-                          "source": "{http.request.host}"
-                        },
-                        {
-                          "handler": "subroute",
-                          "routes": [
-                            {
-                              "match": [
-                                {
-                                  "path": ["/webdav/*"]
-                                }
-                              ],
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:3030" }]
-                                }
-                              ]
-                            },
-                            {
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "stream_close_delay": 28800000000000,
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:30000" }]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "@id": "foundrycollege.net",
-                      "handle": [
-                        {
-                          "destinations": ["{backend_ip}"],
-                          "handler": "map",
-                          "mappings": [],
-                          "source": "{http.request.host}"
-                        },
-                        {
-                          "handler": "subroute",
-                          "routes": [
-                            {
-                              "match": [
-                                {
-                                  "path": ["/webdav/*"]
-                                }
-                              ],
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:3030" }]
-                                }
-                              ]
-                            },
-                            {
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "stream_close_delay": 28800000000000,
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:30000" }]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "@id": "knorrfamily.org",
-                      "handle": [
-                        {
-                          "destinations": ["{backend_ip}"],
-                          "handler": "map",
-                          "mappings": [],
-                          "source": "{http.request.host}"
-                        },
-                        {
-                          "handler": "subroute",
-                          "routes": [
-                            {
-                              "match": [
-                                {
-                                  "path": ["/webdav/*"]
-                                }
-                              ],
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:3030" }]
-                                }
-                              ]
-                            },
-                            {
-                              "handle": [
-                                {
-                                  "handler": "reverse_proxy",
-                                  "stream_close_delay": 28800000000000,
-                                  "upstreams": [{ "dial": "{http.request.host}" }, { "dial": "{backend_ip}:30000" }]
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ],
-              "match": [
-                { "host": ["*.foundryserver.ca", "*.foundryserver.com", "*.foundrycollege.net", "*.knorrfamily.org"] }
-              ],
-              "terminal": true
-            }
-          ]
-        }
-      }
+    "admin": {
+        "listen": "192.168.0.3:4334"
     },
-    "tls": {
-      "automation": {
-        "policies": [
-          {
-            "issuers": [
-              {
-                "challenges": {
-                  "dns": {
-                    "provider": { "api_token": "<redacted>", "name": "cloudflare" }
-                  },
-                  "http": { "alternate_port": 80 },
-                  "tls-alpn": { "alternate_port": 443 }
-                },
-                "email": "admin@foundryserver.com",
-                "module": "acme"
-              }
-            ],
-            "subjects": ["*.foundryserver.com", "*.foundrycollege.net", "*.foundryserver.ca", "*.knorrfamily.org"]
-          }
-        ]
-      }
+    "apps": {
+        "http": {
+            "http_port": 80,
+            "https_port": 443,
+            "metrics": {},
+            "servers": {
+                "srv0": {
+                    "errors": {
+                        "routes": [
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "subroute",
+                                        "routes": [
+                                            {
+                                                "handle": [
+                                                    {
+                                                        "handler": "file_server",
+                                                        "hide": [
+                                                            "./Caddyfile"
+                                                        ],
+                                                        "index_names": [
+                                                            "/5xx_error.html"
+                                                        ],
+                                                        "root": "/usr/share/caddy/error_pages/error_pages/game_servers"
+                                                    }
+                                                ],
+                                                "match": [
+                                                    {
+                                                        "expression": "{http.error.status_code} >= 500 && {http.error.status_code} <= 599"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "match": [
+                                    {
+                                        "host": [
+                                            "*.foundrycollege.net"
+                                        ]
+                                    }
+                                ],
+                                "terminal": true
+                            },
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "subroute",
+                                        "routes": [
+                                            {
+                                                "handle": [
+                                                    {
+                                                        "handler": "file_server",
+                                                        "hide": [
+                                                            "./Caddyfile"
+                                                        ],
+                                                        "index_names": [
+                                                            "/5xx_error.html"
+                                                        ],
+                                                        "root": "/usr/share/caddy/error_pages/error_pages/game_servers"
+                                                    }
+                                                ],
+                                                "match": [
+                                                    {
+                                                        "expression": "{http.error.status_code} >= 500 && {http.error.status_code} <= 599"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "match": [
+                                    {
+                                        "host": [
+                                            "*.foundryserver.com"
+                                        ]
+                                    }
+                                ],
+                                "terminal": true
+                            },
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "subroute",
+                                        "routes": [
+                                            {
+                                                "handle": [
+                                                    {
+                                                        "handler": "file_server",
+                                                        "hide": [
+                                                            "./Caddyfile"
+                                                        ],
+                                                        "index_names": [
+                                                            "/5xx_error.html"
+                                                        ],
+                                                        "root": "/usr/share/caddy/error_pages/error_pages/game_servers"
+                                                    }
+                                                ],
+                                                "match": [
+                                                    {
+                                                        "expression": "{http.error.status_code} >= 500 && {http.error.status_code} <= 599"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "match": [
+                                    {
+                                        "host": [
+                                            "*.foundryserver.ca"
+                                        ]
+                                    }
+                                ],
+                                "terminal": true
+                            },
+                            {
+                                "handle": [
+                                    {
+                                        "handler": "subroute",
+                                        "routes": [
+                                            {
+                                                "handle": [
+                                                    {
+                                                        "handler": "file_server",
+                                                        "hide": [
+                                                            "./Caddyfile"
+                                                        ],
+                                                        "index_names": [
+                                                            "/5xx_error.html"
+                                                        ],
+                                                        "root": "/usr/share/caddy/error_pages/error_pages/game_servers"
+                                                    }
+                                                ],
+                                                "match": [
+                                                    {
+                                                        "expression": "{http.error.status_code} >= 500 && {http.error.status_code} <= 599"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "match": [
+                                    {
+                                        "host": [
+                                            "*.knorrfamily.org"
+                                        ]
+                                    }
+                                ],
+                                "terminal": true
+                            }
+                        ]
+                    },
+                    "listen": [
+                        "38.186.49.186:443"
+                    ],
+                    "routes": [
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "@id": "foundrycollege.net",
+                                            "handle": [
+                                                {
+                                                    "destinations": [
+                                                        "{backend_ip}"
+                                                    ],
+                                                    "handler": "map",
+                                                    "mappings": [
+                                                        
+                                                    ],
+                                                    "source": "{http.request.host}"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "rewrite",
+                                                                    "strip_path_prefix": "/webdav"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "{http.request.host}"
+                                                                        },
+                                                                        {
+                                                                            "dial": "{backend_ip}:3030"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/webdav/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "stream_close_delay": 28800000000000,
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "{http.request.host}"
+                                                        },
+                                                        {
+                                                            "dial": "{backend_ip}:30000"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "*.foundrycollege.net"
+                                    ]
+                                }
+                            ],
+                            "terminal": true
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "@id": "foundryserver.com",
+                                            "handle": [
+                                                {
+                                                    "destinations": [
+                                                        "{backend_ip}"
+                                                    ],
+                                                    "handler": "map",
+                                                    "mappings": [
+                                                        
+                                                    ],
+                                                    "source": "{http.request.host}"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "rewrite",
+                                                                    "strip_path_prefix": "/webdav"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "{http.request.host}"
+                                                                        },
+                                                                        {
+                                                                            "dial": "{backend_ip}:3030"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/webdav/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "stream_close_delay": 28800000000000,
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "{http.request.host}"
+                                                        },
+                                                        {
+                                                            "dial": "{backend_ip}:30000"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "*.foundryserver.com"
+                                    ]
+                                }
+                            ],
+                            "terminal": true
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "@id": "foundryserver.ca",
+                                            "handle": [
+                                                {
+                                                    "destinations": [
+                                                        "{backend_ip}"
+                                                    ],
+                                                    "handler": "map",
+                                                    "mappings": [
+                                                        
+                                                    ],
+                                                    "source": "{http.request.host}"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "rewrite",
+                                                                    "strip_path_prefix": "/webdav"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "{http.request.host}"
+                                                                        },
+                                                                        {
+                                                                            "dial": "{backend_ip}:3030"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/webdav/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "stream_close_delay": 28800000000000,
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "{http.request.host}"
+                                                        },
+                                                        {
+                                                            "dial": "{backend_ip}:30000"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "*.foundryserver.ca"
+                                    ]
+                                }
+                            ],
+                            "terminal": true
+                        },
+                        {
+                            "handle": [
+                                {
+                                    "handler": "subroute",
+                                    "routes": [
+                                        {
+                                            "@id": "knorrfamily.org",
+                                            "handle": [
+                                                {
+                                                    "destinations": [
+                                                        "{backend_ip}"
+                                                    ],
+                                                    "handler": "map",
+                                                    "mappings": [
+                                                        
+                                                    ],
+                                                    "source": "{http.request.host}"
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "subroute",
+                                                    "routes": [
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "rewrite",
+                                                                    "strip_path_prefix": "/webdav"
+                                                                }
+                                                            ]
+                                                        },
+                                                        {
+                                                            "handle": [
+                                                                {
+                                                                    "handler": "reverse_proxy",
+                                                                    "upstreams": [
+                                                                        {
+                                                                            "dial": "{http.request.host}"
+                                                                        },
+                                                                        {
+                                                                            "dial": "{backend_ip}:3030"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            ]
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            "match": [
+                                                {
+                                                    "path": [
+                                                        "/webdav/*"
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "handle": [
+                                                {
+                                                    "handler": "reverse_proxy",
+                                                    "stream_close_delay": 28800000000000,
+                                                    "upstreams": [
+                                                        {
+                                                            "dial": "{http.request.host}"
+                                                        },
+                                                        {
+                                                            "dial": "{backend_ip}:30000"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ],
+                            "match": [
+                                {
+                                    "host": [
+                                        "*.knorrfamily.org"
+                                    ]
+                                }
+                            ],
+                            "terminal": true
+                        }
+                    ]
+                }
+            }
+        },
+        "tls": {
+            "automation": {
+                "policies": [
+                    {
+                        "issuers": [
+                            {
+                                "challenges": {
+                                    "dns": {
+                                        "provider": {
+                                            "api_token": "<redacted>",
+                                            "name": "cloudflare"
+                                        }
+                                    }
+                                },
+                                "email": "admin@foundryserver.com",
+                                "module": "acme"
+                            }
+                        ],
+                        "subjects": [
+                            "*.foundrycollege.net",
+                            "*.foundryserver.com",
+                            "*.foundryserver.ca",
+                            "*.knorrfamily.org"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+    "logging": {
+        "logs": {
+            "default": {
+                "level": "DEBUG"
+            }
+        }
     }
-  },
-  "logging": { "logs": { "default": { "level": "DEBUG" } } }
 }
