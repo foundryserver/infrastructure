@@ -6,145 +6,64 @@
 # Description:
 #
 # Customer game servers are routed to the correct backend service based on the
-# subdomain.  If the game server is not running, the user is redirected to a
-# custom error page that is hosted by the caddy server/vm.  
+# subdomain.  If the game server is not running, the user is redirected to a
+# custom error page that is hosted by the caddy server/vm.  
 ###############################################################################
 
 # Global server settings
 {
-	debug
-	http_port 80
-	https_port 443
-	metrics
-	default_bind 38.186.49.185
-	admin 192.168.0.2:4334
-	email admin@foundryserver.com
+    debug
+    http_port 80
+    https_port 443
+    metrics
+    default_bind 38.186.49.185
+    admin 192.168.0.2:4334
+    email admin@foundryserver.com
 }
 
-*.foundryserver.ca {
-	# Get the SSL certificate from Cloudflare for wildcard subdomains.
-	tls {
-		dns cloudflare {redacted}
-	}
-
-	# This map will relate a host name to a backend ip address.
-	map {host} {backend_ip} {
-		example.foundryserver.ca "192.168.255.200"
-	}
-
-	# This will handle webdav requests
-	handle_path /webdav/* {
-		reverse_proxy {host} {backend_ip}:3030 {
-		}
-	}
-
-	# This will take the mapping and router the traffic to the correct backend service.
-	reverse_proxy {host} {backend_ip}:30000 {
-		# No matter what a web socket connection will close after 8 hours.
-		stream_close_delay 8h
-	}
-
-	# This is used to catch a request for a customer game server that is not running.
-	handle_errors 5xx {
-		file_server {
-			index /5xx_error.html
-			root /usr/share/caddy/error_pages/error_pages/game_servers
-		}
-	}
-}
-
-*.foundryserver.com {
-	# Get the SSL certificate from Cloudflare for wildcard subdomains.
-	tls {
-		dns cloudflare {redacted}
-	}
-
-	# This map will relate a host name to a backend ip address.
-	map {host} {backend_ip} {
-		example.foundryserver.com "192.168.255.200"
-	}
-
-	# This will handle webdav requests
-	handle_path /webdav/* {
-		reverse_proxy {host} {backend_ip}:3030 {
-		}
-	}
-
-	# This will take the mapping and router the traffic to the correct backend service.
-	reverse_proxy {host} {backend_ip}:30000 {
-		# No matter what a web socket connection will close after 8 hours.
-		stream_close_delay 8h
-	}
-
-	# This is used to catch a request for a customer game server that is not running.
-	handle_errors 5xx {
-		file_server {
-			index /5xx_error.html
-			root /usr/share/caddy/error_pages/error_pages/game_servers
-		}
-	}
-}
-
-*.foundrycollege.net {
-	# Get the SSL certificate from Cloudflare for wildcard subdomains.
-	tls {
-		dns cloudflare {redacted}
-	}
-
-	# This map will relate a host name to a backend ip address.
-	map {host} {backend_ip} {
-		example.foundrycollege.net "192.168.255.200"
-	}
-
-	# This will handle webdav requests
-	handle_path /webdav/* {
-		reverse_proxy {host} {backend_ip}:3030 {
-		}
-	}
-
-	# This will take the mapping and router the traffic to the correct backend service.
-	reverse_proxy {host} {backend_ip}:30000 {
-		# No matter what a web socket connection will close after 8 hours.
-		stream_close_delay 8h
-	}
-
-	# This is used to catch a request for a customer game server that is not running.
-	handle_errors 5xx {
-		file_server {
-			index /5xx_error.html
-			root /usr/share/caddy/error_pages/error_pages/game_servers
-		}
-	}
-}
-
+# Caddyfile using grouped site addresses
+*.foundryserver.ca,
+*.foundryserver.com,
+*.foundrycollege.net,
 *.knorrfamily.org {
-	# Get the SSL certificate from Cloudflare for wildcard subdomains.
-	tls {
-		dns cloudflare {redacted}
-	}
+    tls {
+        dns cloudflare redacted
+    }
 
-	# This map will relate a host name to a backend ip address.
-	map {host} {backend_ip} {
-		example.knorrfamily.org "192.168.255.200"
-	}
+    # This map is correctly defining a placeholder {backend_ip}
+    map {host} {backend_ip} {
+        harry.knorrfamily.org "192.168.255.237"
+        default "127.0.0.1"
+    }
 
-	# This will handle webdav requests
-	handle_path /webdav/* {
-		reverse_proxy {host} {backend_ip}:3030 {
-		}
-	}
+    # --- MAIN REVERSE PROXY BLOCK ---
+    @main {
+        not path /webdav/*
+    }
+    handle @main {
+        reverse_proxy {backend_ip}:30000 {
+            # Set the Host header to what the user requested. Crucial for some backends.
+            header_up Host {http.request.host}
+            
+            # This will try to connect to the backend for up to 5 seconds
+            # before giving up. It helps with momentarily slow backends.
+            lb_try_duration 5s
+            stream_close_delay 8h
+        }
+    }
 
-	# This will take the mapping and router the traffic to the correct backend service.
-	reverse_proxy {host} {backend_ip}:30000 {
-		# No matter what a web socket connection will close after 8 hours.
-		stream_close_delay 8h
-	}
+    # --- WEBDAV PROXY BLOCK ---
+    handle_path /webdav/* {
+        reverse_proxy {backend_ip}:3030 {
+            header_up Host {http.request.host}
+        }
+    }
 
-	# This is used to catch a request for a customer game server that is not running.
-	handle_errors 5xx {
-		file_server {
-			index /5xx_error.html
-			root /usr/share/caddy/error_pages/error_pages/game_servers
-		}
-	}
+    # --- ERROR HANDLING ---
+    handle_errors { 
+        rewrite * /5xx_error.html
+        file_server {
+            root /usr/share/caddy/error_pages/game_servers
+        }
+    }
 }

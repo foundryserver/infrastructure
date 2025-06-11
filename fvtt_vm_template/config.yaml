@@ -1,11 +1,8 @@
-# Webdav server configuration file.
-# This file is used to configure the WebDAV server that will be used to
-# access the files in the FoundryVTT data directory.
-# The server will be started when the FoundryVTT application is started.
-
 # Listen ip and port
 address: 0.0.0.0
 port: 3030
+
+debug: false
 
 # Prefix to apply to the WebDAV path-ing. Default is '/'.
 prefix: /
@@ -15,22 +12,11 @@ prefix: /
 # of logging attempts (if available).
 behindProxy: true
 
-# The directory that will be able to be accessed by the users when connecting.
-# This directory will be used by users unless they have their own 'directory' defined.
-# Default is '.' (current directory).
-directory: /foundrydata
-
-# The default permissions for users. This is a case insensitive option. Possible
-# permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
-# permissions. For example, to allow to read and create, set "RC". Default is "R".
-permissions: CRUD
-
 # The list of users. If the list is empty, then there will be no authentication.
 # Otherwise, basic authentication will automatically be configured.
 #
 users:
   - username: "username"
     password: "password"
-  # Example user whose details will be picked up from the environment.
-  - username: "{env}ENV_USERNAME"
-    password: "{env}ENV_PASSWORD"
+    directory: /home/fvtt/foundrydata
+    permissions: CRUD

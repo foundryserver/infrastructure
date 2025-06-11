@@ -1,13 +1,8 @@
 # System wide env values
 
-# See Lastpass for the password and place in this file on the template
-
 ############ Foundry Server #########################
 
-WD_USERNAME=admin\*foundry
-WD_PASSWORD=
-
-LEVEL=planlevel
+LEVEL={1/2/3/4/5/6}
 NODE_ENV={dev/prod}
 
 ####################################################

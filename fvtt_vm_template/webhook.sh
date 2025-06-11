@@ -9,6 +9,13 @@
 # Description:       Executes commands only on the very first boot using a marker file.
 ### END INIT INFO
 
+# Get environment variables from /etc/environment
+# This is necessary to ensure that the script has access to the environment variables
+if [ -f /etc/environment ]; then
+    export $(grep -v '^#' /etc/environment | xargs)
+fi
+
+
 # Check if another instance is running
 if [ -f /home/admin/webhook.running ]; then
     echo "Another webhook script is already running"
