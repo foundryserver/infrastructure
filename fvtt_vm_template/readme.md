@@ -176,21 +176,39 @@ EOF
 
 ## Create Webhook/bandwidth script file.
 
-1. webhook.sh - this file is located at /etc/init.d/webhook.sh
+1. webhook.sh - this file is located at /usr/local/bin/webhook.sh
 2. bandwidth.sh - this file is located at /home/fvtt/bandwidth.sh
 3. reset_iptables.sh - this file is located at /home/fvtt/reset_iptables.sh
 4. setup_cron.sh - this file is located at /root
-5. dev/prod - this file is located at /home/fvtt/{dev:prod}
 
 Now set the perms and cron
 
 ```
-chmod +x /etc/init.d/webhook.sh
+chmod +x /usr/local/bin/webhook.sh
 chmod +x /home/fvtt/bandwidth.sh
 chmod +x /home/fvtt/reset_iptables.sh
-touch /home/fvtt/{dev:prod}
 chown fvtt:fvtt -R /home/fvtt
-update-rc.d webhook.sh defaults  # make webhook.sh run at boot.
+```
+
+## Setup webhook
+
+```
+cat << EOF >  /etc/systemd/system/webhook.service
+[Unit]
+Description=One-time webhook script
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/webhook.sh
+ExecStartPost=/bin/bash -c "systemctl disable webhook.service"
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable webhook.service
 ```
 
 ## Install Nodejs binary
