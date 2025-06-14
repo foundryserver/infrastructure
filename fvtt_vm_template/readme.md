@@ -1,6 +1,7 @@
 # CHANGELOG
 
 1.0.2 May 9, 25 - Initial Entry
+1.0.5 June 14, 25 - Added zip binary
 
 ================================================================================================================
 
@@ -250,6 +251,10 @@ sudo rm -f /etc/netplan/*
 sudo rm ~/.bash_history
 
 sudo rm -rf /home/fvtt/foundrycore/*
+
+sudo rm /home/admin/webhook*
+
+systemctl enable webhook.service
 
 # Shutdown the VM
 sudo shutdown -h now
