@@ -23,7 +23,7 @@ apt autoremove -y
 
 ```
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-echo "{dev/prod}" >> /etc/environment
+echo "NODE_ENV={dev/prod}" >> /etc/environment
 ```
 
 ## Clean up Unnessary Processes
@@ -270,28 +270,23 @@ systemctl enable webhook
 rm -f /etc/ssh/ssh*host*\*
 
 # Clear machine ID
-
 truncate -s 0 /etc/machine-id
 rm -f /var/lib/dbus/machine-id
 ln -s /etc/machine-id /var/lib/dbus/machine-id
 
 # Clean apt cache
-
 apt clean
 rm -rf /var/lib/apt/lists/\*
 
 # Clear logs
-
 find /var/log -type f -exec truncate -s 0 {} \;
 rm -rf /tmp/_
 rm -rf /var/tmp/_
 
 # (Optional) Remove bash history
-
 rm -f /root/.bash_history
 
 # Remove DHCP leases
-
 dhclient -r
 rm -f /var/lib/dhcp/\*
 
