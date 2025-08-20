@@ -21,7 +21,7 @@ https://www.proxmox.com/en/products/proxmox-backup-server/get-started
 
 ## Network
 
-This host will only need to connect to the mgmt network on vlan 10. The other connection will be on the oob netwrok for idrac.
+This host will only need to connect to the mgmt network on vlan 10. The other connection will be on the oob network for idrac.
 
 ## Configuration
 
