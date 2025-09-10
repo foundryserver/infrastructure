@@ -37,10 +37,10 @@ systemctl disable postfix
 
 ```
 cd ~
-wget https://nodejs.org/download/release/latest/node-v24.6.0-linux-x64.tar.gz
-tar -xzf node-v24.6.0-linux-x64.tar.gz
-mv ~/node-v24.6.0-linux-x64/bin/node /usr/bin
-rm -rf node-v24.6.0-linux-x64*
+wget https://nodejs.org/download/release/latest/node-v24.7.0-linux-x64.tar.gz
+tar -xzf node-v24.7.0-linux-x64.tar.gz
+mv ~/node-v24.7.0-linux-x64/bin/node /usr/bin
+rm -rf node-v24.7.0-linux-x64*
 node --version
 ```
 
@@ -142,10 +142,7 @@ permissions: CRUD
 users:
 - username: "username"
   password: "password"
-# Example user whose details will be picked up from the environment.
-- username: "{env}WD_USERNAME"
-  password: "{env}WD_PASSWORD"
-  EOF
+EOF
 ```
 
 ```
@@ -243,18 +240,22 @@ EOF
 We need to run a bash script to report back to vmapi the ip address of this container. Once that has happened then vmapi will make some changes to the container and get the fvtt to start running. Here is the systemd file. Put the webhook.sy file is the roots home dir. Make it executable.
 
 ```
-cat << /etc/systemd/system/webhook.service>>
+cat << EOF>  /etc/systemd/system/webhook.service
+[Unit]
 Description=One-time webhook script
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=~/webhook.sh
-ExecStartPost=/bin/bash -c "systemctl disable webhook.service"
+User=root
+Group=root
+ExecStart=/root/webhook.sh
+ExecStopPost=/bin/systemctl disable webhook.service
 
 [Install]
 WantedBy=multi-user.target
+
 EOF
 systemctl daemon-reload
 systemctl enable webhook
@@ -286,8 +287,14 @@ rm -rf /var/tmp/_
 # (Optional) Remove bash history
 rm -f /root/.bash_history
 
-# Remove DHCP leases
-dhclient -r
-rm -f /var/lib/dhcp/\*
 
+```
+
+## Build os template from .raw file
+
+```
+losetup -fP /var/lib/vz/images/101/vm-101-disk-0.raw
+mount /dev/loop0 /mnt/temp
+tar --numeric-owner --owner=0 --group=0 -czf /mnt/pve/cephfs/template/cache/debian13-custom-$(date +%Y%m%d).tar.gz -C /mnt/temp/ .
+umount /mnt/temp
 ```
