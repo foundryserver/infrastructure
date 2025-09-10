@@ -294,7 +294,10 @@ rm -f /root/.bash_history
 
 ```
 losetup -fP /var/lib/vz/images/101/vm-101-disk-0.raw
+mkdir /mnt/temp
 mount /dev/loop0 /mnt/temp
 tar --numeric-owner --owner=0 --group=0 -czf /mnt/pve/cephfs/template/cache/debian13-custom-$(date +%Y%m%d).tar.gz -C /mnt/temp/ .
 umount /mnt/temp
+losetup -d /dev/loop0
+rmdir /mnt/temp
 ```
