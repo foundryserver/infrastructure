@@ -6,8 +6,24 @@ if [ $# -eq 0 ]; then
     echo "No arguments provided. Please provide the FVTT version."
     exit 1
 fi
-LATEST=$1
-VERSION=$2
+LATEST=$2
+URL=$1
+
+if [ -z "$LATEST" ]; then
+    LATEST=false
+fi
+
+# get version from url
+# https://r2.foundryvtt.com/releases/13.347/FoundryVTT-Linux-13.347.zip?verify=1757878009-vWDOwBRtX9eKNkG4BSvpQC66S3BmqoQXKfBZ3ZI639k%3D
+VERSION=$(echo $URL | grep -oP 'FoundryVTT-Linux-\K[0-9]+\.[0-9]+' | head -1)
+
+# download the file
+echo "Downloading Foundry VTT version $VERSION from $URL"
+wget -O /home/0-images/fvtt_$VERSION.zip "$URL"
+
+# Unzip the file
+echo "Unzipping Foundry VTT version $VERSION"
+unzip -o /home/0-images/fvtt_$VERSION.zip -d /home/0-images/fvtt_$VERSION
 
 # Remove unnecessary files
 find /home/0-images/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
@@ -17,31 +33,30 @@ find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "test
 find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "docs" -exec rm -rf {} +
 find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "examples" -exec rm -rf {} +
 rm -f /home/0-images/fvtt_$VERSION/foundryvtt
+rm -f /home/0-images/fvtt_$VERSION/fvtt_$VERSION.zip
 
 # create the fvtt.service file with the following
+echo "Creating fvtt.service file"
 
 cat <<EOF >/home/0-images/fvtt.service
-# Version 1.0.0
 [Unit]
-Description=Fvtt Server
+Description=Foundry VTT Application v1.0.0
 After=network.target
 Wants=network.target
 
 [Service]
 Type=simple
-User=fvtt
-Group=fvtt
-WorkingDirectory=/home/fvtt/foundrycore
-ExecStart=node /home/fvtt/foundrycore/resources/app/main.js --dataPath=/home/fvtt/foundrydata --noupdate --port=30000 --serviceKey=32kljrekj43kjl3
-ExecStop=/bin/kill -s SIGINT $MAINPID
+User=root
+Group=root
+ExecStart=/usr/bin/node /foundrycore/resources/app/main.js --dataPath=/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
+ExecStop=/bin/kill -s SIGINT
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-#create the service key file
-
+#create the service key files
 cat <<EOF >/home/0-images/fvtt_$VERSION/foundryserver.json
 {
     "id": "foundryserver.com", 
@@ -57,18 +72,17 @@ cat <<EOF >/home/0-images/fvtt_$VERSION/hostlicense/foundryserver.json
 }
 EOF
 
+#Upload to DO
+echo "Uploading to DO"
+
 # Create the package using fpm
-fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package /home/0-images/packages /home/0-images/fvtt_$VERSION/=/home/fvtt/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /home/0-images/packages /home/0-images/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
 
 if [ $LATEST == true ]; then
     s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
 
-#Upload to DO
-echo "Uploading to DO"
 # Upload latest package to DO Spaces
 s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
-# Set the ACL to public
-echo "Setting ACL to public"
 s3cmd setacl s3://foundry-apt/foundry_${VERSION}_amd64.deb --acl-public --recursive
