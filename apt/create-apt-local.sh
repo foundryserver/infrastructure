@@ -16,7 +16,6 @@ fi
 # get version from url
 VERSION_NUM=$(echo $VERSION | tr -d '.')
 
-
 # Remove unnecessary files
 find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
 find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.d.ts" -delete
