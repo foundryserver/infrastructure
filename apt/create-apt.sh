@@ -110,6 +110,6 @@ if [ $LATEST == true ]; then
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
 
-# Upload latest package to DO Spaces
+# Upload latest package to DO Spaces.
 s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
 s3cmd setacl s3://foundry-apt/foundry_${VERSION}_amd64.deb --acl-public --recursive
