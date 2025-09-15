@@ -88,7 +88,7 @@ EOF
 echo "Uploading to DO"
 
 # Create the package using fpm
-fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /home/0-images/packages /home/0-images/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
 
 if [ $LATEST == true ]; then
     s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
