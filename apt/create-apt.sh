@@ -16,6 +16,7 @@ fi
 # get version from url
 # https://r2.foundryvtt.com/releases/13.347/FoundryVTT-Linux-13.347.zip?verify=1757878009-vWDOwBRtX9eKNkG4BSvpQC66S3BmqoQXKfBZ3ZI639k%3D
 VERSION=$(echo $URL | grep -oP 'FoundryVTT-Linux-\K[0-9]+\.[0-9]+' | head -1)
+VERSION_NUM=$(echo $VERSION | tr -d '.')
 
 # download the file
 echo "Downloading Foundry VTT version $VERSION from $URL"
@@ -38,7 +39,8 @@ rm -f /home/0-images/fvtt_$VERSION/fvtt_$VERSION.zip
 # create the fvtt.service file with the following
 echo "Creating fvtt.service file"
 
-cat <<EOF >/home/0-images/fvtt.service
+if [ "$VERSION_NUM" -lt 13338 ]; then
+    cat <<EOF >/home/0-images/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
 After=network.target
@@ -55,6 +57,27 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
+else
+    cat <<EOF >/home/0-images/fvtt.service
+[Unit]
+Description=Foundry VTT Application v1.0.0
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/bin/node /foundrycore/main.js --dataPath=/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
+ExecStop=/bin/kill -s SIGINT
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
+
+
 
 #create the service key files
 cat <<EOF >/home/0-images/fvtt_$VERSION/foundryserver.json
