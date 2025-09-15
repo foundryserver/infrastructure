@@ -15,7 +15,7 @@ fi
 
 # get version from url
 # https://r2.foundryvtt.com/releases/13.347/FoundryVTT-Linux-13.347.zip?verify=1757878009-vWDOwBRtX9eKNkG4BSvpQC66S3BmqoQXKfBZ3ZI639k%3D
-VERSION=$(echo $URL | grep -oP 'FoundryVTT-Linux-\K[0-9]+\.[0-9]+' | head -1)
+VERSION=$(echo "$URL" | grep -oP '(?<=releases/)[0-9]+\.[0-9]+' | head -1)
 VERSION_NUM=$(echo $VERSION | tr -d '.')
 
 # download the file
