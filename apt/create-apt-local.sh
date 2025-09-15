@@ -17,6 +17,7 @@ fi
 VERSION_NUM=$(echo $VERSION | tr -d '.')
 
 # Remove unnecessary files
+echo "Cleaning up unnecessary files"
 find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
 find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.d.ts" -delete
 find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.map" -delete
@@ -27,7 +28,6 @@ rm -f /mnt/data/fvtt_$VERSION/foundryvtt
 
 # create the fvtt.service file with the following
 echo "Creating fvtt.service file"
-
 if [ "$VERSION_NUM" -lt 13338 ]; then
     cat <<EOF >/mnt/data/fvtt.service
 [Unit]
@@ -66,9 +66,8 @@ WantedBy=multi-user.target
 EOF
 fi
 
-
-
 #create the service key files
+echo "Creating service key files"
 cat <<EOF >/mnt/data/fvtt_$VERSION/foundryserver.json
 {
     "id": "foundryserver.com", 
@@ -85,11 +84,11 @@ cat <<EOF >/mnt/data/fvtt_$VERSION/hostlicense/foundryserver.json
 EOF
 
 #Upload to DO
-echo "Uploading to DO"
 
+echo "Preparing to create package for version $VERSION, latest: $LATEST"
 # Create the package using fpm
 fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
-
+echo "Uploading to DO"
 if [ $LATEST == true ]; then
     s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
