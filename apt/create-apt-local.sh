@@ -11,10 +11,10 @@ VERSION=$1
 
 if [ -z "$LATEST" ]; then
     LATEST=false
+else
+    LATEST=true
 fi
 
-# get version from url
-VERSION_NUM=$(echo $VERSION | tr -d '.')
 
 # Remove unnecessary files
 echo "Cleaning up unnecessary files"
@@ -28,7 +28,7 @@ rm -f /mnt/data/fvtt_$VERSION/foundryvtt
 
 # create the fvtt.service file with the following
 echo "Creating fvtt.service file"
-if [ "$VERSION_NUM" -lt 13338 ]; then
+
     cat <<EOF >/mnt/data/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
@@ -46,25 +46,7 @@ Restart=on-failure
 [Install]
 WantedBy=multi-user.target
 EOF
-else
-    cat <<EOF >/mnt/data/fvtt.service
-[Unit]
-Description=Foundry VTT Application v1.0.0
-After=network.target
-Wants=network.target
 
-[Service]
-Type=simple
-User=root
-Group=root
-ExecStart=/usr/bin/node /foundrycore/main.js --dataPath=/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
-ExecStop=/bin/kill -s SIGINT
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-EOF
-fi
 
 #create the service key files
 echo "Creating service key files"
@@ -88,6 +70,7 @@ EOF
 echo "Preparing to create package for version $VERSION, latest: $LATEST"
 # Create the package using fpm
 fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/foundrycore /mnt/data/fvtt.service=/etc/systemd/system/fvtt.service
+
 echo "Uploading to DO"
 if [ $LATEST == true ]; then
     s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
