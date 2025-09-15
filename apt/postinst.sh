@@ -8,4 +8,7 @@ if command -v systemctl >/dev/null; then
     systemctl restart fvtt.service || true
 fi
 
+# Mark the apt package as held to prevent automatic updates
+apt-mark hold foundry
+
 exit 0

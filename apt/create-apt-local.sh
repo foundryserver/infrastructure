@@ -7,44 +7,30 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 LATEST=$2
-URL=$1
+VERSION=$1
 
 if [ -z "$LATEST" ]; then
     LATEST=false
 fi
 
 # get version from url
-# https://r2.foundryvtt.com/releases/13.347/FoundryVTT-Linux-13.347.zip?verify=1757878009-vWDOwBRtX9eKNkG4BSvpQC66S3BmqoQXKfBZ3ZI639k%3D
-VERSION=$(echo "$URL" | grep -oP '(?<=releases/)[0-9]+\.[0-9]+' | head -1)
 VERSION_NUM=$(echo $VERSION | tr -d '.')
 
-# download the file
-echo "Downloading Foundry VTT version $VERSION from $URL"
-wget -O /home/0-images/fvtt_$VERSION.zip "$URL"
-
-# Create necessary directories
-echo "Creating necessary directories"
-mkdir -p /home/0-images/fvtt_$VERSION
-
-# Unzip the file
-echo "Unzipping Foundry VTT version $VERSION"
-unzip -o /home/0-images/fvtt_$VERSION.zip -d /home/0-images/fvtt_$VERSION
 
 # Remove unnecessary files
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -name "*.d.ts" -delete
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -name "*.map" -delete
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "test" -exec rm -rf {} +
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "docs" -exec rm -rf {} +
-find /home/0-images/fvtt_$VERSION/resources/app/node_modules -type d -name "examples" -exec rm -rf {} +
-rm -f /home/0-images/fvtt_$VERSION/foundryvtt
-rm -f /home/0-images/fvtt_$VERSION/fvtt_$VERSION.zip
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.d.ts" -delete
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -name "*.map" -delete
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -type d -name "test" -exec rm -rf {} +
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -type d -name "docs" -exec rm -rf {} +
+find /mnt/data/fvtt_$VERSION/resources/app/node_modules -type d -name "examples" -exec rm -rf {} +
+rm -f /mnt/data/fvtt_$VERSION/foundryvtt
 
 # create the fvtt.service file with the following
 echo "Creating fvtt.service file"
 
 if [ "$VERSION_NUM" -lt 13338 ]; then
-    cat <<EOF >/home/0-images/fvtt.service
+    cat <<EOF >/mnt/data/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
 After=network.target
@@ -62,7 +48,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 else
-    cat <<EOF >/home/0-images/fvtt.service
+    cat <<EOF >/mnt/data/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
 After=network.target
@@ -84,15 +70,15 @@ fi
 
 
 #create the service key files
-cat <<EOF >/home/0-images/fvtt_$VERSION/foundryserver.json
+cat <<EOF >/mnt/data/fvtt_$VERSION/foundryserver.json
 {
     "id": "foundryserver.com", 
     "signature": "P81tGaZHUlvizkkS1SheHtBGayGWAH0z8Xov0q+kMuwANw8Ubg8pICNdYLxNjMF1nnZ5bmcKUng2MX9c5kNz8xrxy5WBHs5fIUXFXaYKJNMdCrwp/tnL4bANTVWTL5zWmhnhaV9T6OezAa5cp9UTQoRbK9vrBwlQcpYL+pp93mCYJOx09gktUCIJVksUAMF1ExC+rpwUt49cl2R0qjnpUjq1ztyVHk5h5P5xDUhb8EeUA3xoh2TyvUo4nn7TklXTmxkU9uMcPbMnTxXhHOVPMHseYM5niWB2fO+q8i8EefBRvtOe3CFs18s75F9+dSggY93Zp/MtfuhDOD4yd0abOYbpSo+vstbJC1FMql0d0GAVJDDB6qKwHeX9bLVv7z/E6vncWLsvujfDURJsgyRjtngziuv+9I8h/9GSmbbGAdO8bPUxibXHSHA5Q0KtmR3cuTMx6Xdb03EPdCndNC5LKylWn1EE7kVBMlkE7oPhKJYVPLMCmsRit2YWWugDz3O/VWd3mbFs9F0cX8HdcfTGel7IFd8d0R4UDEHAZNfk3QPojhMgsM4qHFJwQLUEVdP9RF0/aUMcJDYyGKkuMNk7aPidn8TdvR+asnttCkIkLr9Wn+FR6za8HyDpgUo8kG99mNXtgZZKeH9SidleudkQsj50zZzwxgIhHqltufWwBP8="
 }
 EOF
 
-mkdir -p /home/0-images/fvtt_$VERSION/hostlicense
-cat <<EOF >/home/0-images/fvtt_$VERSION/hostlicense/foundryserver.json
+mkdir -p /mnt/data/fvtt_$VERSION/hostlicense
+cat <<EOF >/mnt/data/fvtt_$VERSION/hostlicense/foundryserver.json
 {
     "id": "foundryserver.com", 
     "signature": "P81tGaZHUlvizkkS1SheHtBGayGWAH0z8Xov0q+kMuwANw8Ubg8pICNdYLxNjMF1nnZ5bmcKUng2MX9c5kNz8xrxy5WBHs5fIUXFXaYKJNMdCrwp/tnL4bANTVWTL5zWmhnhaV9T6OezAa5cp9UTQoRbK9vrBwlQcpYL+pp93mCYJOx09gktUCIJVksUAMF1ExC+rpwUt49cl2R0qjnpUjq1ztyVHk5h5P5xDUhb8EeUA3xoh2TyvUo4nn7TklXTmxkU9uMcPbMnTxXhHOVPMHseYM5niWB2fO+q8i8EefBRvtOe3CFs18s75F9+dSggY93Zp/MtfuhDOD4yd0abOYbpSo+vstbJC1FMql0d0GAVJDDB6qKwHeX9bLVv7z/E6vncWLsvujfDURJsgyRjtngziuv+9I8h/9GSmbbGAdO8bPUxibXHSHA5Q0KtmR3cuTMx6Xdb03EPdCndNC5LKylWn1EE7kVBMlkE7oPhKJYVPLMCmsRit2YWWugDz3O/VWd3mbFs9F0cX8HdcfTGel7IFd8d0R4UDEHAZNfk3QPojhMgsM4qHFJwQLUEVdP9RF0/aUMcJDYyGKkuMNk7aPidn8TdvR+asnttCkIkLr9Wn+FR6za8HyDpgUo8kG99mNXtgZZKeH9SidleudkQsj50zZzwxgIhHqltufWwBP8="
@@ -106,10 +92,10 @@ echo "Uploading to DO"
 fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /home/0-images/packages /home/0-images/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
 
 if [ $LATEST == true ]; then
-    s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
+    s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
 
 # Upload latest package to DO Spaces
-s3cmd put /home/0-images/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
+s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_${VERSION}_amd64.deb
 s3cmd setacl s3://foundry-apt/foundry_${VERSION}_amd64.deb --acl-public --recursive
