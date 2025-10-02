@@ -4,11 +4,10 @@ This template is based on the Debian 12 Linux distribution. The goal is for some
 
 ## File Storage Layout
 
-The container will have 3 filesystems. This will provide max flexibility and storage efficiency.
+The container will have 2 filesystems. This will provide max flexibility and storage efficiency.
 
 rootfs - / - Proxmox ceph rbd (vm_pool) 3 GB
 user game data - /foundrydata - Proxmox ceph rbd (vm_pool) 5-75 GB
-foundry source code - /foundrycore/<version number> - Proxmox ceph cephfs ( cephfs )
 
 ## Packages installed.
 
@@ -23,7 +22,7 @@ apt autoremove -y
 
 ```
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-echo "NODE_ENV={dev/prod}" >> /etc/environment
+
 ```
 
 ## Clean up Unnessary Processes
@@ -80,42 +79,12 @@ cpulimit: 0.25
 hostname: lxc-template
 memory: 1536
 mp0: vm_pool:vm-5000-disk-1,mp=/foundrydata,backup=1,size=3G
-mp1: /mnt/pve/cephfs/foundrycore/13.347,mp=/foundrycore,shared=1,ro=1
 nameserver: 192.168.0.1 1.1.1.1
 net0: name=eth0,bridge=vmbr0,hwaddr=BC:24:11:C6:A2:5F,ip=dhcp,tag=20,type=veth
 ostype: debian
 rootfs: vm_pool:vm-5000-disk-0,size=8G
 swap: 1024
 unprivileged: 1
-```
-
-## Systemd Setup for Fvtt
-
-```
-
-cat << EOF > /etc/systemd/system/fvtt.service
-[Unit]
-Description=Foundry VTT Application
-After=network.target
-Wants=network.target
-
-[Service]
-Type=simple
-User=root
-Group=root
-ExecStart=/usr/bin/node /foundrycore/resources/app/main.js --dataPath=/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
-ExecStop=/bin/kill -s SIGINT
-Restart=on-failure
-
-[Install]
-WantedBy=multi-user.target
-
-EOF
-
-systemctl daemon-reload
-systemctl enable fvtt
-systemctl start fvtt
-
 ```
 
 ## Create the default webdav config and service file
@@ -140,8 +109,8 @@ behindProxy: true
 directory: /foundrydata
 permissions: CRUD
 users:
-- username: "username"
-  password: "password"
+- username: "place_username99"
+  password: "place_password99"
 EOF
 ```
 
@@ -152,7 +121,6 @@ Description=WebDAV
 After=network.target
 
 [Service]
-Environment="WD_USERNAME=admin-foundry" 'WD_PASSWORD="<REDACTED>"'
 Type=simple
 User=root
 Group=root
@@ -292,12 +260,30 @@ rm -f /root/.bash_history
 
 ## Build os template from .raw file
 
+### Dev Template
+
 ```
-losetup -fP /var/lib/vz/images/101/vm-101-disk-0.raw
+losetup -fP /var/lib/vz/images/5010/vm-5010-disk-0.raw
 mkdir /mnt/temp
 mount /dev/loop0 /mnt/temp
-tar --numeric-owner --owner=0 --group=0 -czf /mnt/pve/cephfs/template/cache/debian13-custom-$(date +%Y%m%d).tar.gz -C /mnt/temp/ .
+echo "NODE_ENV=dev" >> /mnt/temp/etc/environment
+tar --numeric-owner --owner=0 --group=0 -czf /mnt/pve/cephfs/template/cache/debian13-custom-$(date +%Y%m%d)-dev.tar.gz -C /mnt/temp/ .
 umount /mnt/temp
 losetup -d /dev/loop0
 rmdir /mnt/temp
+echo "Make sure you edit the .env files with the new template name of: debian13-custom-$(date +%Y%m%d)-dev.tar.gz"
+```
+
+### PROD Template
+
+```
+losetup -fP /var/lib/vz/images/5010/vm-5010-disk-0.raw
+mkdir /mnt/temp
+mount /dev/loop0 /mnt/temp
+echo "NODE_ENV=prod" >> /mnt/temp/etc/environment
+tar --numeric-owner --owner=0 --group=0 -czf /mnt/pve/cephfs/template/cache/debian13-custom-$(date +%Y%m%d)-prod.tar.gz -C /mnt/temp/ .
+umount /mnt/temp
+losetup -d /dev/loop0
+rmdir /mnt/temp
+echo "Make sure you edit the .env files with the new template name of: debian13-custom-$(date +%Y%m%d)-prod.tar.gz"
 ```

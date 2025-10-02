@@ -1,20 +1,13 @@
 #!/bin/bash
-### BEGIN INIT INFO
-# Provides:          webhook.sh
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
 # Short-Description: Runs webhook.sh once on first boot
 # Description:       Executes commands only on the very first boot using a marker file.
-### END INIT INFO
+# Version:           1.0.1
 
 # Get environment variables from /etc/environment
 # This is necessary to ensure that the script has access to the environment variables
 if [ -f /etc/environment ]; then
     export $(grep -v '^#' /etc/environment | xargs)
 fi
-
 
 # Check if another instance is running
 if [ -f ~/webhook.running ]; then
@@ -49,6 +42,12 @@ URL1="http://vmapi1.vm.local:$PORT/vm/webhook"
 # Create an ipcToken for the webhook
 USERNAME=$(hostname)
 HASH=$(echo -n "$USERNAME" | openssl dgst -sha256 | awk '{print $2}')
+
+# We need for dhcp to assign an IP address to eth0 before we can call the webhook
+echo "Waiting for eth0 to get an IP address..."
+while ! ip addr show eth0 | grep -q "inet\b"; do
+    sleep 1
+done
 
 # Get the IP address of eth0
 IP_ADDRESS=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
@@ -107,13 +106,11 @@ if [ $STATUS_CODE -eq 200 ]; then
         exit 1
     fi
 
-    echo "Setting up environment variables..."
-    LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
-    sed -i "s/planlevel/$LEVEL/g" /etc/environment
-
     echo "Successfully called webhook"
     rm -f ~/webhook.running
     touch ~/webhook.succeeded
+    # disable webhook.service from systemd
+    systemctl disable webhook.service
     exit 0
 else
     echo "Failed to call webhook after $MAX_ATTEMPTS attempts"
