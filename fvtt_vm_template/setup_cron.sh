@@ -3,12 +3,14 @@
 # This script sets up the cron jobs for bandwidth monitoring and monthly counter resets
 
 # Define the correct paths to the scripts
-BANDWIDTH_SCRIPT="/home/fvtt/bandwidth.sh"
-RESET_SCRIPT="/home/fvtt/reset_iptables.sh"
+BANDWIDTH_SCRIPT="/home/admin/bandwidth.sh"
+RESET_SCRIPT="/home/admin/reset_iptables.sh"
+UPTIME_SCRIPT="/home/admin/uptime.sh"
 
 # Make sure the scripts are executable
 chmod +x "${BANDWIDTH_SCRIPT}"
 chmod +x "${RESET_SCRIPT}"
+chmod +x "${UPTIME_SCRIPT}"
 
 # Create a temporary file for the new crontab
 TEMP_CRON=$(mktemp)
@@ -32,6 +34,15 @@ if ! grep -q "reset_iptables.sh" "$TEMP_CRON"; then
     echo "Entry for reset_iptables.sh added to crontab"
 else
     echo "Entry for reset_iptables.sh already exists in crontab"
+fi
+
+# Check if uptime.sh entry already exists
+if ! grep -q "uptime.sh" "$TEMP_CRON"; then
+    echo "# Check VM uptime every hour" >> "$TEMP_CRON"
+    echo "0 * * * * ${UPTIME_SCRIPT} >> /var/log/uptime_execution.log 2>&1" >> "$TEMP_CRON"
+    echo "Entry for uptime.sh added to crontab"
+else
+    echo "Entry for uptime.sh already exists in crontab"
 fi
 
 # Install the updated crontab

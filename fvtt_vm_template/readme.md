@@ -13,34 +13,34 @@ This is the recipe to create the clone able vm for customer provisioning. You wi
 
 ```
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-mkdir /mnt/userdata  #used for nfs transition
+```
+
+## User Accounts
+
+```
+useradd -m -s /bin/bash -p $(openssl passwd -1 '') admin
+usermod -aG sudo admin
+echo "admin  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+chown -R admin:admin /home/admin/
+chmod 700 -R /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
 ```
 
 ## Install Necessary Packages
 
 ```
 apt update
-apt install htop curl nano qemu-guest-agent cron nfs-common jq netselect-apt unattended-upgrades apt-listchanges s3cmd zip -y
+apt upgrade -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
 apt autoremove -y
 ```
 
 ## Automated Updates
 
-You will need to make changes to the options file for this work as desired.
-The netselect will help find the fastest mirror to be used.
-
-# Security updates for stable
-
-deb http://security.debian.org/ bookworm-security main contrib non-free non-free-firmware
-
 ```
-netselect-apt -n -o /etc/apt/sources.list
-# Security updates for stable
-echo 'deb http://security.debian.org/ bookworm-security main contrib non-free non-free-firmware' >> /etc/apt/sources.list
-
-sudo dpkg-reconfigure -plow unattended-upgrades
-
+dpkg-reconfigure --priority=low unattended-upgrades
 nano /etc/apt/apt.conf.d/50unattended-upgrades
+unattended-upgrade --dry-run --debug
 ```
 
 ## Timezone
@@ -69,7 +69,7 @@ systemctl restart ssh
 ## Setup Swap
 
 ```
-fallocate -l 4G /swapfile
+fallocate -l 2G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
@@ -79,59 +79,80 @@ echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ## Create fvtt user and service file.
 
 ```
-sudo adduser --uid 2000 --shell=/usr/sbin/nologin --disabled-password fvtt
-mkdir -p /home/fvtt/foundrydata/{Config,Logs,Data}
+mkdir -p /home/fvtt/foundrydata
 mkdir -p /home/fvtt/foundrycore
 mkdir -p /home/fvtt/webdav
 ```
 
 ## Create the default webdav config and service file
 
+Download binary and install
+
+```
+wget https://github.com/hacdias/webdav/releases/download/v5.8.0/linux-amd64-webdav.tar.gz
+tar -xzf linux-amd64-webdav.tar.gz
+mv webdav /usr/bin
+rm linux-amd64-webdav.tar.gz
+```
+
 ```
 cat << EOF > /home/fvtt/webdav/config.yaml
+
 # Listen ip and port
+
 address: 0.0.0.0
 port: 3030
 
 # Prefix to apply to the WebDAV path-ing. Default is '/'.
+
 prefix: /
 
 # Whether the server runs behind a trusted proxy or not. When this is true,
+
 # the header X-Forwarded-For will be used for logging the remote addresses
+
 # of logging attempts (if available).
+
 behindProxy: true
 
 # The directory that will be able to be accessed by the users when connecting.
+
 # This directory will be used by users unless they have their own 'directory' defined.
+
 # Default is '.' (current directory).
-directory: /foundrydata
+
+directory: /home/fvtt/foundrydata
 
 # The default permissions for users. This is a case insensitive option. Possible
+
 # permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
+
 # permissions. For example, to allow to read and create, set "RC". Default is "R".
+
 permissions: CRUD
 
 # The list of users. If the list is empty, then there will be no authentication.
+
 # Otherwise, basic authentication will automatically be configured.
+
 #
+
 users:
-  - username: "username"
-    password: "password"
-   # Example user whose details will be picked up from the environment.
-  - username: "{env}WD_USERNAME"
-    password: "{env}WD_PASSWORD"
 
-EOF
+- username: "place#username"
+  password: "place#password"
+  EOF
+
 ```
 
 ```
+
 cat << EOF > /etc/systemd/system/webdav.service
 [Unit]
-Description=WebDAV
+Description=WebDAV Server
 After=network.target
 
 [Service]
-Environment="WD_USERNAME=admin-foundry" 'WD_PASSWORD="<REDACTED>"'
 Type=simple
 User=fvtt
 Group=fvtt
@@ -143,58 +164,33 @@ WantedBy=multi-user.target
 
 EOF
 
-```
+systemctl enable --now webdav.service
 
-## Create the default options.json file.
-
-```
-cat <<EOF > /home/fvtt/foundrydata/Config/options.json
-{
-    "port": 30000,
-    "upnp": false,
-    "fullscreen": false,
-    "hostname": "username.foundryserver.com",
-    "routePrefix": null,
-    "adminKey": null,
-    "sslCert": null,
-    "sslKey": null,
-    "awsConfig": null,
-    "dataPath": "/home/fvtt/foundrydata/",
-    "proxySSL": false,
-    "proxyPort": 443,
-    "world": null,
-    "isElectron": false,
-    "isNode": true,
-    "isSSL": true,
-    "background": false,
-    "debug": false,
-    "demo": false,
-    "serviceConfig": "/home/fvtt/foundrycore/foundryserver.json",
-    "updateChannel": "release"
-}
-EOF
 ```
 
 ## Create Webhook/bandwidth script file.
 
-1. webhook.sh - this file is located at /usr/local/bin/webhook.sh
-2. bandwidth.sh - this file is located at /home/fvtt/bandwidth.sh
-3. reset_iptables.sh - this file is located at /home/fvtt/reset_iptables.sh
+1. webhook.sh - this file is located at /home/admin/webhook.sh
+2. bandwidth.sh - this file is located at /home/admin/bandwidth.sh
+3. reset_iptables.sh - this file is located at /home/admin/reset_iptables.sh
 4. setup_cron.sh - this file is located at /root
 
 Now set the perms and cron
 
 ```
-chmod +x /usr/local/bin/webhook.sh
-chmod +x /home/fvtt/bandwidth.sh
-chmod +x /home/fvtt/reset_iptables.sh
-chown fvtt:fvtt -R /home/fvtt
+
+chmod +x /home/admin/webhook.sh
+chmod +x /home/admin/bandwidth.sh
+chmod +x /home/admin/reset_iptables.sh
+chown admin:admin -R /home/admin
+
 ```
 
 ## Setup webhook
 
 ```
-cat << EOF >  /etc/systemd/system/webhook.service
+
+cat << EOF > /etc/systemd/system/webhook.service
 [Unit]
 Description=One-time webhook script
 After=network-online.target
@@ -202,60 +198,60 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/webhook.sh
-ExecStartPost=/bin/bash -c "systemctl disable webhook.service"
+ExecStart=/home/admin/webhook.sh
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 systemctl enable webhook.service
+
 ```
 
 ## Install Nodejs binary
 
 ```
+
 cd ~
-wget https://nodejs.org/download/release/latest/node-v24.0.0-linux-x64.tar.gz
-tar -xzf node-v24.0.0-linux-x64.tar.gz
-mv ~/node-v24.0.0-linux-x64/bin/node /usr/bin
-rm -rf node-v24.0.0-linux-x64*
+wget https://nodejs.org/download/release/latest/node-v24.9.0-linux-x64.tar.gz
+tar -xzf node-v24.9.0-linux-x64.tar.gz
+mv ~/node-v24.9.0-linux-x64/bin/node /usr/bin
+rm -rf node-v24.9.0-linux-x64\*
 node --version
+
 ```
 
 ## Debian Reset VM for templating
 
 ```
+
 # Clean Cloud-Init data
+
 sudo cloud-init clean --logs --seed
 
 # Remove SSH host keys
-sudo rm -f /etc/ssh/ssh_host_*
+
+sudo rm -f /etc/ssh/ssh_host*
 
 # Clear machine identifiers
+
 truncate -s 0 /etc/machine-id
 
 # Clean logs and temporary files
+
 sudo find /var/log -type f -exec truncate -s 0 {} \;
-sudo rm -rf /tmp/*
-sudo rm -rf /var/tmp/*
+sudo rm -rf /tmp/_
+sudo rm -rf /var/tmp/_
 
 # Remove DHCP leases
+
 sudo dhclient -r
 sudo rm -f /var/lib/dhcp/*
 
-# Clear network configuration (Optional)
-sudo rm -f /etc/network/interfaces.d/*
-sudo rm -f /etc/netplan/*
-
 sudo rm ~/.bash_history
 
-sudo rm -rf /home/fvtt/foundrycore/*
-
-sudo rm /home/admin/webhook*
-
-systemctl enable webhook.service
-
 # Shutdown the VM
+
 sudo shutdown -h now
+
 ```

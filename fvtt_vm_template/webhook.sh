@@ -1,20 +1,12 @@
 #!/bin/bash
-### BEGIN INIT INFO
-# Provides:          webhook.sh
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Runs webhook.sh once on first boot
-# Description:       Executes commands only on the very first boot using a marker file.
-### END INIT INFO
+
+# version 1.0.0
 
 # Get environment variables from /etc/environment
 # This is necessary to ensure that the script has access to the environment variables
 if [ -f /etc/environment ]; then
     export $(grep -v '^#' /etc/environment | xargs)
 fi
-
 
 # Check if another instance is running
 if [ -f /home/admin/webhook.running ]; then
@@ -52,13 +44,6 @@ HASH=$(echo -n "$USERNAME" | openssl dgst -sha256 | awk '{print $2}')
 
 # Get the IP address of eth0
 IP_ADDRESS=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-
-# Using sed replace the text "username" with the value of $USERNAME in the file
-sed -i "s/username/$USERNAME/g" /home/fvtt/foundrydata/Config/options.json
-
-# Install the latest foundry version.
-echo "Installing the latest Foundry version..."
-curl -s https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb | sudo bash -c "cat > /tmp/pkg.deb && dpkg -i /tmp/pkg.deb && rm /tmp/pkg.deb"
 
 # Initialize counter and status code
 ATTEMPTS=0
@@ -121,6 +106,7 @@ if [ $STATUS_CODE -eq 200 ]; then
     echo "Successfully called webhook"
     rm -f /home/admin/webhook.running
     touch /home/admin/webhook.succeeded
+    systemctl disable webhook.service
     exit 0
 else
     echo "Failed to call webhook after $MAX_ATTEMPTS attempts"

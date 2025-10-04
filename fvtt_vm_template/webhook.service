@@ -6,7 +6,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/webhook.sh
-ExecStartPost=/bin/bash -c "systemctl disable webhook.service"
 
 [Install]
 WantedBy=multi-user.target
