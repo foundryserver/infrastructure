@@ -5,7 +5,7 @@
 #===============================================================================
 # 
 # Script Name:    webhook.sh
-# Version:        1.1.0
+# Version:        1.1.1
 # Purpose:        First-boot initialization script for Foundry VTT virtual machines
 # Author:         Brad Knorr
 # Created:        2025
@@ -315,6 +315,16 @@ if [ $STATUS_CODE -eq 200 ]; then
         touch /home/admin/webhook.env.updated
     else
         handle_error "Failed to update environment variables"
+    fi
+
+    # Set cron jobs based on level (0 = 15 hr/mon , 1 = 3 hour idle shutdown)
+    if [ "$LEVEL" -eq 0 ]; then
+        (crontab -l 2>/dev/null; echo "0 * * * * /home/admin/uptime.sh >> /var/log/uptime_execution.log 2>&1") | crontab -
+        log "Set uptime cron job for level 0"
+    elif [ "$LEVEL" -eq 1 ]; then
+        (crontab -l 2>/dev/null; echo "*/10 * * * * /home/admin/bandwidth.sh >> /var/log/bandwidth_execution.log 2>&1") | crontab -
+        (crontab -l 2>/dev/null; echo "1 0 1 * * /home/admin/reset_iptables.sh >> /var/log/reset_iptables_execution.log 2>&1") | crontab -
+        log "Set bandwidth cron job for level 1"
     fi
 
     log "Successfully called webhook"
