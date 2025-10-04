@@ -111,7 +111,7 @@ fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --af
 
 #Upload to DO
 echo "Uploading to DO"
-if [ $LATEST == true ]; then
+if [ $LATEST = true ]; then
     s3cmd put $TEMP_DIR/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
