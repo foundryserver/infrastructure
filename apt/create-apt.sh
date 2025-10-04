@@ -67,14 +67,6 @@ WantedBy=multi-user.target
 EOF
 else
 
-# Remove unnecessary files
-find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.md" -delete
-find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.d.ts" -delete
-find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.map" -delete
-find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "test" -exec rm -rf {} +
-find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "docs" -exec rm -rf {} +
-find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "examples" -exec rm -rf {} +
-
     cat <<EOF >$TEMP_DIR/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
@@ -112,12 +104,13 @@ cat <<EOF >$TEMP_DIR/fvtt_$VERSION/hostlicense/foundryserver.json
 }
 EOF
 
+# Create the package using fpm
+echo "Creating package"
+
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package $TEMP_DIR/packages $TEMP_DIR/fvtt_$VERSION/=/home/fvtt/data/foundrycore $TEMP_DIR/fvtt.service=/etc/systemd/system/fvtt.service
+
 #Upload to DO
 echo "Uploading to DO"
-
-# Create the package using fpm
-fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package $TEMP_DIR/packages $TEMP_DIR/fvtt_$VERSION/=/home/fvtt/data/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
-
 if [ $LATEST == true ]; then
     s3cmd put $TEMP_DIR/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
