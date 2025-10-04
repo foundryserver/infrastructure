@@ -37,8 +37,8 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=fvtt
+Group=fvtt
 ExecStart=/usr/bin/node /home/fvtt/data/foundrycore/resources/app/main.js --dataPath=/home/fvtt/data/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
 ExecStop=/bin/kill -s SIGINT
 Restart=on-failure
@@ -69,7 +69,7 @@ EOF
 
 echo "Preparing to create package for version $VERSION, latest: $LATEST"
 # Create the package using fpm
-fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/foundrycore /mnt/data/fvtt.service=/etc/systemd/system/fvtt.service
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/home/fvtt/data/foundrycore /mnt/data/fvtt.service=/etc/systemd/system/fvtt.service
 
 echo "Uploading to DO"
 if [ $LATEST == true ]; then

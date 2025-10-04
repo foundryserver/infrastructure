@@ -56,8 +56,8 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=fvtt
+Group=fvtt
 ExecStart=/usr/bin/node /home/fvtt/data/foundrycore/resources/app/main.js --dataPath=/home/fvtt/data/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
 ExecStop=/bin/kill -s SIGINT
 Restart=on-failure
@@ -74,8 +74,8 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
+User=fvtt
+Group=fvtt
 ExecStart=/usr/bin/node /home/fvtt/data/foundrycore/main.js --dataPath=/home/fvtt/data/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
 ExecStop=/bin/kill -s SIGINT
 Restart=on-failure
@@ -107,7 +107,7 @@ EOF
 echo "Uploading to DO"
 
 # Create the package using fpm
-fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user root --deb-group root --force --package $TEMP_DIR/packages $TEMP_DIR/fvtt_$VERSION/=/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
+fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package $TEMP_DIR/packages $TEMP_DIR/fvtt_$VERSION/=/home/fvtt/data/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
 
 if [ $LATEST == true ]; then
     s3cmd put $TEMP_DIR/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
