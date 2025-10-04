@@ -34,6 +34,11 @@ mkdir -p $TEMP_DIR/fvtt_$VERSION
 echo "Unzipping Foundry VTT version $VERSION"
 unzip -o $TEMP_DIR/fvtt_$VERSION.zip -d $TEMP_DIR/fvtt_$VERSION
 
+# create the fvtt.service file with the following
+echo "Creating fvtt.service file"
+
+if [ "$VERSION_NUM" -lt 13338 ]; then
+
 # Remove unnecessary files
 find $TEMP_DIR/fvtt_$VERSION/resources/app/node_modules -name "*.md" -delete
 find $TEMP_DIR/fvtt_$VERSION/resources/app/node_modules -name "*.d.ts" -delete
@@ -43,11 +48,6 @@ find $TEMP_DIR/fvtt_$VERSION/resources/app/node_modules -type d -name "docs" -ex
 find $TEMP_DIR/fvtt_$VERSION/resources/app/node_modules -type d -name "examples" -exec rm -rf {} +
 rm -f $TEMP_DIR/fvtt_$VERSION/foundryvtt
 
-
-# create the fvtt.service file with the following
-echo "Creating fvtt.service file"
-
-if [ "$VERSION_NUM" -lt 13338 ]; then
     cat <<EOF >$TEMP_DIR/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
@@ -66,6 +66,15 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 else
+
+# Remove unnecessary files
+find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.md" -delete
+find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.d.ts" -delete
+find $TEMP_DIR/fvtt_$VERSION/node_modules -name "*.map" -delete
+find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "test" -exec rm -rf {} +
+find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "docs" -exec rm -rf {} +
+find $TEMP_DIR/fvtt_$VERSION/node_modules -type d -name "examples" -exec rm -rf {} +
+
     cat <<EOF >$TEMP_DIR/fvtt.service
 [Unit]
 Description=Foundry VTT Application v1.0.0
@@ -109,7 +118,7 @@ echo "Uploading to DO"
 # Create the package using fpm
 fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package $TEMP_DIR/packages $TEMP_DIR/fvtt_$VERSION/=/home/fvtt/data/foundrycore fvtt.service=/etc/systemd/system/fvtt.service
 
-if [ $LATEST = true ]; then
+if [ $LATEST == true ]; then
     s3cmd put $TEMP_DIR/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
