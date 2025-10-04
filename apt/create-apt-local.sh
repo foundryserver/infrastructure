@@ -72,7 +72,7 @@ echo "Preparing to create package for version $VERSION, latest: $LATEST"
 fpm -s dir -t deb -n "foundry" -v $VERSION --description "Fvtt application" --after-install postinst.sh --before-install preinst.sh --deb-compression gz --deb-user fvtt --deb-group fvtt --force --package /mnt/data/packages /mnt/data/fvtt_$VERSION/=/home/fvtt/data/foundrycore /mnt/data/fvtt.service=/etc/systemd/system/fvtt.service
 
 echo "Uploading to DO"
-if [ $LATEST == true ]; then
+if [ $LATEST = true ]; then
     s3cmd put /mnt/data/packages/foundry_${VERSION}_amd64.deb s3://foundry-apt/foundry_latest_amd64.deb
     s3cmd setacl s3://foundry-apt/foundry_latest_amd64.deb --acl-public --recursive
 fi
