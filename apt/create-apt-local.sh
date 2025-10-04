@@ -39,7 +39,7 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-ExecStart=/usr/bin/node /foundrycore/resources/app/main.js --dataPath=/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
+ExecStart=/usr/bin/node /home/fvtt/data/foundrycore/resources/app/main.js --dataPath=/home/fvtt/data/foundrydata --noupdate --port=30000 -serviceKey=32kljrekj43kjl3
 ExecStop=/bin/kill -s SIGINT
 Restart=on-failure
 
