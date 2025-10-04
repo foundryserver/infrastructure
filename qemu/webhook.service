@@ -4,8 +4,10 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+User=root
+Group=root
 Type=oneshot
-ExecStart=/usr/local/bin/webhook.sh
+ExecStart=/home/admin/webhook.sh
 
 [Install]
 WantedBy=multi-user.target
