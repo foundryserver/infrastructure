@@ -3,13 +3,13 @@
 #===============================================================================
 # FOUNDRY VTT VM INITIALIZATION SCRIPT
 #===============================================================================
-# 
+#
 # Script Name:    webhook.sh
-# Version:        1.1.1
+# Version:        1.1.2
 # Purpose:        First-boot initialization script for Foundry VTT virtual machines
 # Author:         Brad Knorr
-# Created:        2025
-# Last Modified:  October 4, 2025
+# Created:        October 1, 2025
+# Last Modified:  October 6, 2025
 #
 #===============================================================================
 # DESCRIPTION
@@ -142,12 +142,21 @@ log "Checking SCSI device mount..."
 if mountpoint -q /home/fvtt/data; then
     log "SCSI device already mounted at /home/fvtt/data"
 else
-    log "Mounting scsi1 device to the VM..."
-    
+    log "Mounting scsi1 device to the VM..."    
+
+    # partition /dev/sdb if it is not already partitioned
+    if ! blkid /dev/sdb1 >/dev/null 2>&1; then
+        log "Partitioning /dev/sdb..."
+        echo -e "n\np\n1\n\n\nw" | fdisk /dev/sdb || handle_error "Failed to partition /dev/sdb"
+        sleep 2
+    else
+        log "/dev/sdb is already partitioned"
+    fi
+
     # Check if fstab entry exists
-    if ! grep -q '/dev/sdb /home/fvtt/data ext4 defaults 0 2' /etc/fstab; then
-        log "Adding fstab entry for /dev/sdb"
-        echo '/dev/sdb /home/fvtt/data ext4 defaults 0 2' >>/etc/fstab
+    if ! grep -q '/dev/sdb1 /home/fvtt/data ext4 defaults 0 2' /etc/fstab; then
+        log "Adding fstab entry for /dev/sdb1"
+        echo '/dev/sdb1 /home/fvtt/data ext4 defaults 0 2' >>/etc/fstab
     else
         log "fstab entry already exists"
     fi
@@ -155,13 +164,21 @@ else
     # Create mount point if it doesn't exist
     if [ ! -d /home/fvtt/data ]; then
         mkdir -p /home/fvtt/data
-    fi
+    fi    
     
     # Attempt to mount
     if mount /home/fvtt/data; then
         log "Successfully mounted /home/fvtt/data"
     else
         handle_error "Failed to mount /home/fvtt/data"
+    fi
+
+       # Format if not already formatted
+    if ! blkid /dev/sdb1 >/dev/null 2>&1; then
+        log "Formatting /dev/sdb1 as ext4..."
+        mkfs.ext4 /dev/sdb1 || handle_error "Failed to format /dev/sdb1"
+    else
+        log "/dev/sdb1 is already formatted"
     fi
 fi
 
@@ -208,8 +225,7 @@ if dpkg -s foundry >/dev/null 2>&1; then
         if wget -O /tmp/foundry.deb https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb; then
             if dpkg -i /tmp/foundry.deb; then
                 log "Foundry VTT installation successful"
-            else
-                rm -f /tmp/foundry.deb
+            else                
                 handle_error "Foundry VTT installation failed"
             fi
             rm -f /tmp/foundry.deb
@@ -223,7 +239,6 @@ else
         if dpkg -i /tmp/foundry.deb; then
             log "Foundry VTT installation successful"
         else
-            rm -f /tmp/foundry.deb
             handle_error "Foundry VTT installation failed"
         fi
         rm -f /tmp/foundry.deb

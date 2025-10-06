@@ -27,7 +27,7 @@ useradd -m -s /usr/sbin/nologin fvtt
 ```
 apt update
 apt upgrade -y
-apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip isc-dhcp-client -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip wireless-regdb -y
 apt autoremove -y
 ```
 
@@ -77,6 +77,7 @@ echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ```
 mkdir -p /home/fvtt/data
 mkdir -p /home/fvtt/webdav
+chown fvtt:fvtt -R /home/fvtt/*
 ```
 
 ## Create the default webdav config and service file
@@ -215,7 +216,7 @@ sudo rm -rf /var/tmp/_
 
 # Remove DHCP leases
 
-sudo dhclient -r eth0
+# sudo dhclient -r eth0
 sudo rm -f /var/lib/dhcp/*
 
 sudo rm ~/.bash_history
