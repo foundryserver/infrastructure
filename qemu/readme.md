@@ -15,6 +15,19 @@ This is the recipe to create the clone able vm for customer provisioning. You wi
 echo "alias ll='ls -lah'" >> /etc/bash.bashrc
 ```
 
+## Fix Reslove for .local domains.
+
+```
+mkdir -p /etc/systemd/resolved.conf.d
+cat <<EOF > /etc/systemd/resolved.conf.d/forward-local.conf
+[Resolve]
+DNS=192.168.0.1 1.1.1.1
+Domains=~vm.local
+EOF
+sudo systemctl restart systemd-resolved
+
+```
+
 ## User Accounts
 
 ```

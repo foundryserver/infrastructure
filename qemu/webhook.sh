@@ -5,7 +5,7 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        1.1.2
+# Version:        1.1.3
 # Purpose:        First-boot initialization script for Foundry VTT virtual machines
 # Author:         Brad Knorr
 # Created:        October 1, 2025
@@ -187,7 +187,7 @@ log "Setting up directory structure..."
 
 if [ ! -d /home/fvtt/data/foundrydata ]; then
     mkdir -p /home/fvtt/data/foundrydata
-    mkdir -p /home/fvtt/data/foundrydata/{Data,Log,Config}
+    mkdir -p /home/fvtt/data/foundrydata/{Data,Logs,Config}
     log "Created foundry data directory structure"
 else
     log "Foundry data directory structure already exists"
@@ -246,6 +246,35 @@ else
         handle_error "Failed to download Foundry VTT package"
     fi
 fi
+
+# Setup options.json so foundry will start correctly.
+log "Setting up Foundry VTT options.json..."
+cat <<EOF > /home/fvtt/data/foundrydata/Config/options.json
+{
+        port: 30000,
+        upnp: false,
+        fullscreen: false,
+        hostname: $HOSTNAME.foundryserver.com,
+        routePrefix: null,
+        adminKey: null,
+        sslCert: null,
+        sslKey: null,
+        awsConfig: null,
+        dataPath: /home/fvtt/data/foundrydata,
+        proxySSL: false,
+        proxyPort: 443,
+        world: null,
+        isElectron: false,
+        isNode: true,
+        isSSL: true,
+        background: false,
+        debug: false,
+        demo: false,
+        serviceConfig: /home/fvtt/data/foundrycore/foundryserver.json,
+        updateChannel: "release",
+      }
+EOF
+systemctl restart fvtt.service || handle_error "Failed to restart fvtt service after options.json setup"
 
 # Set the port based on if it is dev or prod from NODE_ENV
 if [ "${NODE_ENV}" = "dev" ]; then

@@ -140,6 +140,16 @@ EOF
 
 systemctl enable webhook.service
 
+# this fixs a problem with DNS resolution on some networks using .local domains
+echo "Configuring DNS resolution for .local domains..."
+mkdir -p /etc/systemd/resolved.conf.d
+cat <<EOF > /etc/systemd/resolved.conf.d/forward-local.conf
+[Resolve]
+DNS=192.168.0.1 1.1.1.1
+Domains=~vm.local
+EOF
+sudo systemctl restart systemd-resolved
+
 # Install Node.js binary
 echo "Installing Node.js..."
 cd ~
