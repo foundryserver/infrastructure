@@ -18,12 +18,8 @@ echo "alias ll='ls -lah'" >> /etc/bash.bashrc
 ## User Accounts
 
 ```
-useradd -m -s /bin/bash -p $(openssl passwd -1 '') admin
-usermod -aG sudo admin
-echo "admin  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
-chown -R admin:admin /home/admin/
-chmod 700 -R /home/admin/.ssh
-chmod 600 /home/admin/.ssh/authorized_keys
+useradd -m -s /usr/sbin/nologin fvtt
+
 ```
 
 ## Install Necessary Packages
@@ -31,7 +27,7 @@ chmod 600 /home/admin/.ssh/authorized_keys
 ```
 apt update
 apt upgrade -y
-apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip isc-dhcp-client -y
 apt autoremove -y
 ```
 
@@ -79,8 +75,7 @@ echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ## Create fvtt user and service file.
 
 ```
-mkdir -p /home/fvtt/foundrydata
-mkdir -p /home/fvtt/foundrycore
+mkdir -p /home/fvtt/data
 mkdir -p /home/fvtt/webdav
 ```
 
@@ -98,50 +93,17 @@ rm linux-amd64-webdav.tar.gz
 ```
 cat << EOF > /home/fvtt/webdav/config.yaml
 
-# Listen ip and port
-
 address: 0.0.0.0
 port: 3030
-
-# Prefix to apply to the WebDAV path-ing. Default is '/'.
-
 prefix: /
-
-# Whether the server runs behind a trusted proxy or not. When this is true,
-
-# the header X-Forwarded-For will be used for logging the remote addresses
-
-# of logging attempts (if available).
-
 behindProxy: true
-
-# The directory that will be able to be accessed by the users when connecting.
-
-# This directory will be used by users unless they have their own 'directory' defined.
-
-# Default is '.' (current directory).
-
-directory: /home/fvtt/foundrydata
-
-# The default permissions for users. This is a case insensitive option. Possible
-
-# permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
-
-# permissions. For example, to allow to read and create, set "RC". Default is "R".
-
+directory: /home/fvtt/data/foundrydata
 permissions: CRUD
-
-# The list of users. If the list is empty, then there will be no authentication.
-
-# Otherwise, basic authentication will automatically be configured.
-
-#
-
 users:
-
 - username: "place#username"
   password: "place#password"
-  EOF
+
+EOF
 
 ```
 
@@ -179,11 +141,19 @@ Now set the perms and cron
 
 ```
 
-chmod +x /home/admin/webhook.sh
-chmod +x /home/admin/bandwidth.sh
-chmod +x /home/admin/reset_iptables.sh
-chown admin:admin -R /home/admin
+chmod +x /home/fvtt/webhook.sh
+chmod +x /home/fvtt/bandwidth.sh
+chmod +x /home/fvtt/reset_iptables.sh
+chmod +x /home/fvtt/uptime.sh
+chown fvtt:fvtt -R /home/fvtt
 
+```
+
+## Setup Cronjob to clean up old log files.
+
+```
+crontab -e
+0 2 1 * * /usr/bin/find /var/log -name "*.gz" -type f -delete
 ```
 
 ## Setup webhook
@@ -198,7 +168,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/admin/webhook.sh
+ExecStart=/home/fvtt/webhook.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -245,10 +215,15 @@ sudo rm -rf /var/tmp/_
 
 # Remove DHCP leases
 
-sudo dhclient -r
+sudo dhclient -r eth0
 sudo rm -f /var/lib/dhcp/*
 
 sudo rm ~/.bash_history
+
+# Remove webhook files
+sudo rm /home/fvtt/webhook.success
+sudo rm /home/fvtt/webhook.failed
+sudo rm /home/fvtt/webhook.running
 
 # Shutdown the VM
 

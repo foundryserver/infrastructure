@@ -18,5 +18,5 @@ behindProxy: true
 users:
   - username: "username"
     password: "password"
-    directory: /home/fvtt/foundrydata
+    directory: /home/fvtt/data/foundrydata
     permissions: CRUD

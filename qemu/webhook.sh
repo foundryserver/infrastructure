@@ -51,9 +51,9 @@
 # STATE TRACKING FILES
 #===============================================================================
 #
-# /home/admin/webhook.running      - Script is currently executing
-# /home/admin/webhook.succeeded    - Script completed successfully
-# /home/admin/webhook.failed       - Script encountered an error
+# /home/fvtt/webhook.running      - Script is currently executing
+# /home/fvtt/webhook.succeeded    - Script completed successfully
+# /home/fvtt/webhook.failed       - Script encountered an error
 #
 #===============================================================================
 # ENVIRONMENT REQUIREMENTS
@@ -103,8 +103,8 @@ log() {
 # Error handling function
 handle_error() {
     log "ERROR: $1"
-    rm -f /home/admin/webhook.running
-    touch /home/admin/webhook.failed
+    rm -f /home/fvtt/webhook.running
+    touch /home/fvtt/webhook.failed
     exit 1
 }
 
@@ -118,19 +118,19 @@ else
 fi
 
 # Check if another instance is running
-if [ -f /home/admin/webhook.running ]; then
+if [ -f /home/fvtt/webhook.running ]; then
     log "Another webhook script is already running"
     exit 0
 fi
 
 # Check if the script has already completed successfully
-if [ -f /home/admin/webhook.succeeded ]; then
+if [ -f /home/fvtt/webhook.succeeded ]; then
     log "Webhook has already been completed successfully"
     exit 0
 fi
 
 # Create running marker
-touch /home/admin/webhook.running
+touch /home/fvtt/webhook.running
 log "Starting one-time initialization..."
 
 # --------------- Webhook Script ---------------
@@ -240,8 +240,8 @@ else
 fi
 
 # URL to webhook server
-URL0="http://vmapi0.vm.local:$PORT/vm/webhook"
-URL1="http://vmapi1.vm.local:$PORT/vm/webhook"
+URL0="http://vmapi0.vm.local:$PORT/vm/webhook-init"
+URL1="http://vmapi1.vm.local:$PORT/vm/webhook-init"
 
 # Create an ipcToken for the webhook
 USERNAME=$(hostname)
@@ -312,24 +312,24 @@ if [ $STATUS_CODE -eq 200 ]; then
     # Update environment file
     if sed -i "s/planlevel/$LEVEL/g" /etc/environment; then
         log "Successfully updated environment variables with level: $LEVEL"
-        touch /home/admin/webhook.env.updated
+        touch /home/fvtt/webhook.env.updated
     else
         handle_error "Failed to update environment variables"
     fi
 
     # Set cron jobs based on level (0 = 15 hr/mon , 1 = 3 hour idle shutdown)
     if [ "$LEVEL" -eq 0 ]; then
-        (crontab -l 2>/dev/null; echo "0 * * * * /home/admin/uptime.sh >> /var/log/uptime_execution.log 2>&1") | crontab -
+        (crontab -l 2>/dev/null; echo "0 * * * * /home/fvtt/uptime.sh >> /var/log/uptime_execution.log 2>&1") | crontab -
         log "Set uptime cron job for level 0"
     elif [ "$LEVEL" -eq 1 ]; then
-        (crontab -l 2>/dev/null; echo "*/10 * * * * /home/admin/bandwidth.sh >> /var/log/bandwidth_execution.log 2>&1") | crontab -
-        (crontab -l 2>/dev/null; echo "1 0 1 * * /home/admin/reset_iptables.sh >> /var/log/reset_iptables_execution.log 2>&1") | crontab -
+        (crontab -l 2>/dev/null; echo "*/10 * * * * /home/fvtt/bandwidth.sh >> /var/log/bandwidth_execution.log 2>&1") | crontab -
+        (crontab -l 2>/dev/null; echo "1 0 1 * * /home/fvtt/reset_iptables.sh >> /var/log/reset_iptables_execution.log 2>&1") | crontab -
         log "Set bandwidth cron job for level 1"
     fi
 
     log "Successfully called webhook"
-    rm -f /home/admin/webhook.running
-    touch /home/admin/webhook.succeeded
+    rm -f /home/fvtt/webhook.running
+    touch /home/fvtt/webhook.succeeded
     
     # Disable webhook service if it's enabled
     if systemctl is-enabled webhook.service >/dev/null 2>&1; then
