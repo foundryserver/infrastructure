@@ -9,6 +9,10 @@ if command -v systemctl >/dev/null; then
 fi
 
 # Mark the apt package as held to prevent automatic updates
-apt-mark hold foundry
+# Wait a moment for the package to be fully registered
+sleep 2
+if dpkg -l | grep -q "foundry"; then
+    apt-mark hold foundry || true
+fi
 
 exit 0
