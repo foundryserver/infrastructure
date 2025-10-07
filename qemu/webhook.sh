@@ -316,11 +316,14 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
         log "Trying secondary endpoint (URL1)"
     fi
 
-    # Call webhook and capture status code and response body
-    RESPONSE=$(curl -s -w "%{http_code}" -X POST $URL \
+    # Debug: Log the values being sent
+    log "Sending data: ip=${IP_ADDRESS}, username=${USERNAME}"
+    log "Using URL: $URL"
+
+    # Call webhook and capture status code and response body with verbose output
+    RESPONSE=$(curl -v -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
         -H "Authorization: Bearer $HASH" \
-        -d "ip=$IP_ADDRESS&username=$USERNAME" \
-        --connect-timeout 2)
+        --connect-timeout 2 2>&1)
 
     # Extract status code (last 3 characters of the response)
     STATUS_CODE=$(echo "$RESPONSE" | tail -c 4)

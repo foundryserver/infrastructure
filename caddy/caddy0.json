@@ -1,235 +1,202 @@
 {
-    "admin": {
-        "listen": "192.168.0.2:4334"
-    },
-    "apps": {
-        "http": {
-            "http_port": 80,
-            "https_port": 443,
-            "metrics": {},
-            "servers": {
-                "srv0": {
-                    "errors": {
-                        "routes": [
-                            {
-                                "handle": [
-                                    {
-                                        "handler": "subroute",
-                                        "routes": [
-                                            {
-                                                "group": "group2",
-                                                "handle": [
-                                                    {
-                                                        "handler": "rewrite",
-                                                        "uri": "/5xx_error.html"
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "handle": [
-                                                    {
-                                                        "handler": "file_server",
-                                                        "hide": [
-                                                            "./Caddyfile"
-                                                        ],
-                                                        "root": "/usr/share/caddy/error_pages/gameservers"
-                                                    }
-                                                ]
-                                            }
-                                        ]
-                                    }
-                                ],
-                                "match": [
-                                    {
-                                        "host": [
-                                            "*.foundryserver.ca",
-                                            "*.foundryserver.com",
-                                            "*.foundrycollege.net",
-                                            "*.knorrfamily.org"
-                                        ]
-                                    }
-                                ],
-                                "terminal": true
-                            }
-                        ]
-                    },
-                    "listen": [
-                        "38.186.49.185:443"
-                    ],
+  "admin": {
+    "listen": "192.168.0.2:4334"
+  },
+  "apps": {
+    "http": {
+      "http_port": 80,
+      "https_port": 443,
+      "metrics": {},
+      "servers": {
+        "srv0": {
+          "errors": {
+            "routes": [
+              {
+                "handle": [
+                  {
+                    "handler": "subroute",
                     "routes": [
-                        {
-                            "handle": [
-                                {
-                                    "handler": "subroute",
-                                    "routes": [
-                                        {
-                                            "handle": [
-                                                {
-                                                    "defaults": [
-                                                        "127.0.0.1"
-                                                    ],
-                                                    "destinations": [
-                                                        "{backend_ip}"
-                                                    ],
-                                                    "handler": "map",
-                                                    "mappings": [                                                       
-                                                        {
-                                                            "@id": "harry.knorrfamily.org",
-                                                            "input": "harry.knorrfamily.org",
-                                                            "outputs": [
-                                                                "192.168.255.237"
-                                                            ]
-                                                        }
-                                                    ],
-                                                    "source": "{http.request.host}"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "group": "group3",
-                                            "handle": [
-                                                {
-                                                    "handler": "subroute",
-                                                    "routes": [
-                                                        {
-                                                            "handle": [
-                                                                {
-                                                                    "handler": "reverse_proxy",
-                                                                    "headers": {
-                                                                        "request": {
-                                                                            "set": {
-                                                                                "Host": [
-                                                                                    "{http.request.host}"
-                                                                                ]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "load_balancing": {
-                                                                        "try_duration": 5000000000
-                                                                    },
-                                                                    "stream_close_delay": 28800000000000,
-                                                                    "upstreams": [
-                                                                        {
-                                                                            "dial": "{backend_ip}:30000"
-                                                                        }
-                                                                    ]
-                                                                }
-                                                            ]
-                                                        }
-                                                    ]
-                                                }
-                                            ],
-                                            "match": [
-                                                {
-                                                    "not": [
-                                                        {
-                                                            "path": [
-                                                                "/webdav/*"
-                                                            ]
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "group": "group3",
-                                            "handle": [
-                                                {
-                                                    "handler": "subroute",
-                                                    "routes": [
-                                                        {
-                                                            "handle": [
-                                                                {
-                                                                    "handler": "rewrite",
-                                                                    "strip_path_prefix": "/webdav"
-                                                                }
-                                                            ]
-                                                        },
-                                                        {
-                                                            "handle": [
-                                                                {
-                                                                    "handler": "reverse_proxy",
-                                                                    "headers": {
-                                                                        "request": {
-                                                                            "set": {
-                                                                                "Host": [
-                                                                                    "{http.request.host}"
-                                                                                ]
-                                                                            }
-                                                                        }
-                                                                    },
-                                                                    "upstreams": [
-                                                                        {
-                                                                            "dial": "{backend_ip}:3030"
-                                                                        }
-                                                                    ]
-                                                                }
-                                                            ]
-                                                        }
-                                                    ]
-                                                }
-                                            ],
-                                            "match": [
-                                                {
-                                                    "path": [
-                                                        "/webdav/*"
-                                                    ]
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            ],
-                            "match": [
-                                {
-                                    "host": [
-                                        "*.foundryserver.ca",
-                                        "*.foundryserver.com",
-                                        "*.foundrycollege.net",
-                                        "*.knorrfamily.org"
-                                    ]
-                                }
-                            ],
-                            "terminal": true
-                        }
-                    ]
-                }
-            }
-        },
-        "tls": {
-            "automation": {
-                "policies": [
-                    {
-                        "issuers": [
-                            {
-                                "challenges": {
-                                    "dns": {
-                                        "provider": {
-                                            "api_token": "redacted",
-                                            "name": "cloudflare"
-                                        }
-                                    }
-                                },
-                                "email": "admin@foundryserver.com",
-                                "module": "acme"
-                            }
-                        ],
-                        "subjects": [
-                            "*.foundrycollege.net",
-                            "*.foundryserver.ca",
-                            "*.foundryserver.com",
-                            "*.knorrfamily.org"
+                      {
+                        "group": "group2",
+                        "handle": [
+                          {
+                            "handler": "rewrite",
+                            "uri": "/5xx_error.html"
+                          }
                         ]
+                      },
+                      {
+                        "handle": [
+                          {
+                            "handler": "file_server",
+                            "hide": ["./Caddyfile"],
+                            "root": "/usr/share/caddy/error_pages/gameservers"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "match": [
+                  {
+                    "host": ["*.foundryserver.ca", "*.foundryserver.com", "*.foundrycollege.net", "*.knorrfamily.org"]
+                  }
+                ],
+                "terminal": true
+              }
+            ]
+          },
+          "listen": ["199.45.150.7:443"],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "subroute",
+                  "routes": [
+                    {
+                      "handle": [
+                        {
+                          "defaults": ["127.0.0.1"],
+                          "destinations": ["{backend_ip}"],
+                          "handler": "map",
+                          "mappings": [
+                            {
+                              "@id": "harry.knorrfamily.org",
+                              "input": "harry.knorrfamily.org",
+                              "outputs": ["1.1.1.1"]
+                            }
+                          ],
+                          "source": "{http.request.host}"
+                        }
+                      ]
+                    },
+                    {
+                      "group": "group3",
+                      "handle": [
+                        {
+                          "handler": "subroute",
+                          "routes": [
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "headers": {
+                                    "request": {
+                                      "set": {
+                                        "Host": ["{http.request.host}"]
+                                      }
+                                    }
+                                  },
+                                  "load_balancing": {
+                                    "try_duration": 5000000000
+                                  },
+                                  "stream_close_delay": 28800000000000,
+                                  "upstreams": [
+                                    {
+                                      "dial": "{backend_ip}:30000"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "not": [
+                            {
+                              "path": ["/webdav/*"]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "group": "group3",
+                      "handle": [
+                        {
+                          "handler": "subroute",
+                          "routes": [
+                            {
+                              "handle": [
+                                {
+                                  "handler": "rewrite",
+                                  "strip_path_prefix": "/webdav"
+                                }
+                              ]
+                            },
+                            {
+                              "handle": [
+                                {
+                                  "handler": "reverse_proxy",
+                                  "headers": {
+                                    "request": {
+                                      "set": {
+                                        "Host": ["{http.request.host}"]
+                                      }
+                                    }
+                                  },
+                                  "upstreams": [
+                                    {
+                                      "dial": "{backend_ip}:3030"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ],
+                      "match": [
+                        {
+                          "path": ["/webdav/*"]
+                        }
+                      ]
                     }
-                ]
+                  ]
+                }
+              ],
+              "match": [
+                {
+                  "host": ["*.foundryserver.ca", "*.foundryserver.com", "*.foundrycollege.net", "*.knorrfamily.org"]
+                }
+              ],
+              "terminal": true
             }
+          ]
         }
+      }
     },
-    "logging": {
-        "logs": {
-            "default": {
-                "level": "DEBUG"
-            }
-        }
+    "tls": {
+      "automation": {
+        "policies": [
+          {
+            "issuers": [
+              {
+                "challenges": {
+                  "dns": {
+                    "provider": {
+                      "api_token": "Njth48oMNNV8afDu1G_eFLppmo6YvmJelxD-OZsM",
+                      "name": "cloudflare"
+                    }
+                  }
+                },
+                "email": "admin@foundryserver.com",
+                "module": "acme"
+              }
+            ],
+            "subjects": ["*.foundrycollege.net", "*.foundryserver.ca", "*.foundryserver.com", "*.knorrfamily.org"]
+          }
+        ]
+      }
     }
+  },
+  "logging": {
+    "logs": {
+      "default": {
+        "level": "DEBUG"
+      }
+    }
+  }
 }

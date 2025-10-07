@@ -20,8 +20,8 @@ network:
 
         eth1:
             addresses:
-            - 38.186.49.18x/28
-            gateway4: 38.186.49.177
+            - 199.45.150.7/28
+            gateway4: 199.45.150.1
             match:
                 macaddress:
             nameservers:
@@ -54,8 +54,8 @@ sudo ufw allow in on eth0 from 192.168.0.0/16 to any port 22 proto tcp
 sudo ufw allow in on eth0 from 192.168.0.0/16 to any port 4334 proto tcp
 
 # Allow incoming connections to ports 80 and 443 only for IP 38.186.49.18x on eth1
-sudo ufw allow in on eth1 to 38.186.49.18x port 80 proto tcp
-sudo ufw allow in on eth1 to 38.186.49.18x port 443 proto tcp
+sudo ufw allow in on eth1 to 199.45.150.7 port 80 proto tcp
+sudo ufw allow in on eth1 to 199.45.150.7 port 443 proto tcp
 
 
 # Enable the firewall (with force to avoid prompt)
