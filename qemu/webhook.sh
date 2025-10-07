@@ -251,28 +251,28 @@ fi
 log "Setting up Foundry VTT options.json..."
 cat <<EOF > /home/fvtt/data/foundrydata/Config/options.json
 {
-        port: 30000,
-        upnp: false,
-        fullscreen: false,
-        hostname: $HOSTNAME.foundryserver.com,
-        routePrefix: null,
-        adminKey: null,
-        sslCert: null,
-        sslKey: null,
-        awsConfig: null,
-        dataPath: /home/fvtt/data/foundrydata,
-        proxySSL: false,
-        proxyPort: 443,
-        world: null,
-        isElectron: false,
-        isNode: true,
-        isSSL: true,
-        background: false,
-        debug: false,
-        demo: false,
-        serviceConfig: /home/fvtt/data/foundrycore/foundryserver.json,
-        updateChannel: "release",
-      }
+    "port": 30000,
+    "upnp": false,
+    "fullscreen": false,
+    "hostname": "$HOSTNAME.knorrfamily.org",
+    "routePrefix": null,
+    "adminKey": null,
+    "sslCert": null,
+    "sslKey": null,
+    "awsConfig": null,
+    "dataPath": "/home/fvtt/data/foundrydata",
+    "proxySSL": false,
+    "proxyPort": 443,
+    "world": null,
+    "isElectron": false,
+    "isNode": true,
+    "isSSL": true,
+    "background": false,
+    "debug": false,
+    "demo": false,
+    "serviceConfig": "/home/fvtt/data/foundrycore/foundryserver.json",
+    "updateChannel": "release"
+}
 EOF
 systemctl restart fvtt.service || handle_error "Failed to restart fvtt service after options.json setup"
 
