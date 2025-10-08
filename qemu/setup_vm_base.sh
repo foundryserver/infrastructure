@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # QEMU VM Base Image Setup Script
-# Version: 1.0.5
+# Version: 1.0.6
 # Description: Automates the setup of base image for customer VM provisioning
 
 set -e
@@ -30,29 +30,22 @@ cat << EOF > /etc/apt/apt.conf.d/50unattended-upgrades
 // Unattended-Upgrade::Origins-Pattern controls which packages are
 // upgraded.
 //
-
 Unattended-Upgrade::Origins-Pattern {
         "origin=Debian,codename=${distro_codename},label=Debian";
         "origin=Debian,codename=${distro_codename},label=Debian-Security";
         "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
-
 Unattended-Upgrade::Package-Blacklist {};
-
 // Remove unused automatically installed kernel-related packages
 // (kernel images, kernel headers and kernel version locked tools).
 Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-
 // Do automatic removal of newly unused dependencies after the upgrade
 Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
-
 // Do automatic removal of unused packages after the upgrade
 // (equivalent to apt-get autoremove)
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
-
 // Automatically reboot *WITHOUT CONFIRMATION* if
 //  the file /var/run/reboot-required is found after the upgrade
 Unattended-Upgrade::Automatic-Reboot "true";
-
 // If automatic reboot is enabled and needed, reboot at the specific
 // time instead of immediately
 //  Default: "now"
@@ -76,6 +69,13 @@ echo "Creating fvtt directories..."
 mkdir -p /home/fvtt/data
 mkdir -p /home/fvtt/webdav
 chown fvtt:fvtt -R /home/fvtt/*
+
+# Setup Data Disk
+echo "Setting up data disk..."
+mkfs.ext4 -F /dev/sdb
+mount /dev/sdb /home/fvtt/data
+echo '/dev/sdb /home/fvtt/data ext4 defaults,nofail 0 2' | tee -a /etc/fstab
+
 
 # Download and install WebDAV binary
 echo "Installing WebDAV server..."
@@ -140,7 +140,7 @@ EOF
 
 systemctl enable webhook.service
 
-# this fixs a problem with DNS resolution on some networks using .local domains
+# this fixes a problem with DNS resolution on some networks using .local domains
 echo "Configuring DNS resolution for .local domains..."
 mkdir -p /etc/systemd/resolved.conf.d
 cat <<EOF > /etc/systemd/resolved.conf.d/forward-local.conf

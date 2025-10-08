@@ -5,11 +5,11 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        1.1.3
+# Version:        1.1.4
 # Purpose:        First-boot initialization script for Foundry VTT virtual machines
 # Author:         Brad Knorr
 # Created:        October 1, 2025
-# Last Modified:  October 6, 2025
+# Last Modified:  October 8, 2025
 #
 #===============================================================================
 # DESCRIPTION
@@ -65,7 +65,6 @@
 # - curl for webhook API calls
 # - systemctl for service management
 # - User 'fvtt' must exist
-# - SCSI device at /dev/sdb
 #
 # Network:
 # - Access to foundry-apt.sfo3.digitaloceanspaces.com
@@ -134,53 +133,6 @@ touch /home/fvtt/webhook.running
 log "Starting one-time initialization..."
 
 # --------------- Webhook Script ---------------
-
-# Mount scsi1 device to the VM and put an entry in /etc/fstab
-log "Checking SCSI device mount..."
-
-# Check if already mounted
-if mountpoint -q /home/fvtt/data; then
-    log "SCSI device already mounted at /home/fvtt/data"
-else
-    log "Mounting scsi1 device to the VM..."    
-
-    # partition /dev/sdb if it is not already partitioned
-    if ! blkid /dev/sdb1 >/dev/null 2>&1; then
-        log "Partitioning /dev/sdb..."
-        echo -e "n\np\n1\n\n\nw" | fdisk /dev/sdb || handle_error "Failed to partition /dev/sdb"
-        sleep 2
-    else
-        log "/dev/sdb is already partitioned"
-    fi
-
-    # Check if fstab entry exists
-    if ! grep -q '/dev/sdb1 /home/fvtt/data ext4 defaults 0 2' /etc/fstab; then
-        log "Adding fstab entry for /dev/sdb1"
-        echo '/dev/sdb1 /home/fvtt/data ext4 defaults 0 2' >>/etc/fstab
-    else
-        log "fstab entry already exists"
-    fi
-    
-    # Create mount point if it doesn't exist
-    if [ ! -d /home/fvtt/data ]; then
-        mkdir -p /home/fvtt/data
-    fi    
-    
-    # Attempt to mount
-    if mount /home/fvtt/data; then
-        log "Successfully mounted /home/fvtt/data"
-    else
-        handle_error "Failed to mount /home/fvtt/data"
-    fi
-
-       # Format if not already formatted
-    if ! blkid /dev/sdb1 >/dev/null 2>&1; then
-        log "Formatting /dev/sdb1 as ext4..."
-        mkfs.ext4 /dev/sdb1 || handle_error "Failed to format /dev/sdb1"
-    else
-        log "/dev/sdb1 is already formatted"
-    fi
-fi
 
 # Create directory structure if it doesn't exist
 log "Setting up directory structure..."

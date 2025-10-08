@@ -205,42 +205,44 @@ node --version
 
 ```
 
-## Debian Reset VM for templating
+## we need to run resize2fs /dev/sdb1 every time the vm boots
+
+```
+cat <<EOF>> //etc/systemd/system/resize-sdb.service
+[Unit]
+Description=Resize /dev/sdb to fill the disk
+DefaultDependencies=no
+Before=local-fs-pre.target
+Wants=local-fs-pre.target
+
+[Service]
+User=root
+Group=root
+Type=oneshot
+ExecStart=/sbin/resize2fs /dev/sdb
+RemainAfterExit=yes
+
+[Install]
+WantedBy=local-fs.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable resize-sdb.service
 
 ```
 
-# Clean Cloud-Init data
+## Debian Reset VM for templating
 
+```
 sudo cloud-init clean --logs --seed
-
-# Remove SSH host keys
-
 sudo rm -f /etc/ssh/ssh_host*
-
-# Clear machine identifiers
-
-truncate -s 0 /etc/machine-id
-
-# Clean logs and temporary files
-
+sudo truncate -s 0 /etc/machine-id
 sudo find /var/log -type f -exec truncate -s 0 {} \;
 sudo rm -rf /tmp/_
 sudo rm -rf /var/tmp/_
-
-# Remove DHCP leases
-
-# sudo dhclient -r eth0
 sudo rm -f /var/lib/dhcp/*
-
 sudo rm ~/.bash_history
-
-# Remove webhook files
 sudo rm /home/fvtt/webhook.success
 sudo rm /home/fvtt/webhook.failed
 sudo rm /home/fvtt/webhook.running
-
-# Shutdown the VM
-
 sudo shutdown -h now
-
 ```
