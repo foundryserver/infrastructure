@@ -5,7 +5,7 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        1.1.4
+# Version:        1.1.5
 # Purpose:        First-boot initialization script for Foundry VTT virtual machines
 # Author:         Brad Knorr
 # Created:        October 1, 2025
@@ -106,6 +106,13 @@ handle_error() {
     touch /home/fvtt/webhook.failed
     exit 1
 }
+
+# we need to exit this script if the hostname contains the string "template" or "tpl"
+# this is to prevent the script from running on template VMs used for cloning and dev
+if [[ "$(hostname)" == *"template"* || "$(hostname)" == *"tpl"* ]]; then
+    log "Exiting script: hostname contains 'template' or 'tpl'"
+    exit 0
+fi
 
 # Get environment variables from /etc/environment
 # This is necessary to ensure that the script has access to the environment variables

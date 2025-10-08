@@ -116,6 +116,7 @@ Restart=on-failure
 WantedBy=multi-user.target
 EOF
 
+systemctl daemon-reload
 systemctl enable --now webdav.service
 
 # Setup log cleanup cronjob
@@ -138,6 +139,7 @@ ExecStart=/home/fvtt/webhook.sh
 WantedBy=multi-user.target
 EOF
 
+systemctl daemon-reload
 systemctl enable webhook.service
 
 # this fixes a problem with DNS resolution on some networks using .local domains
@@ -158,3 +160,36 @@ tar -xzf node-v24.9.0-linux-x64.tar.gz
 mv ~/node-v24.9.0-linux-x64/bin/node /usr/bin
 rm -rf node-v24.9.0-linux-x64*
 node --version
+
+# Setup environment
+echo "Setting up environment variables... MAKE SURE YOU CONFIG FOR DEV OR PROD"
+cat << EOF >> /etc/environment
+
+############ Foundry Server #########################
+LEVEL=planlevel
+NODE_ENV=dev
+####################################################
+EOF
+
+# Setup Auto resize service for /dev/sdb
+echo "Setting up auto-resize service for /dev/sdb..."
+cat << EOF > /etc/systemd/system/resize-sdb.service
+[Unit]
+Description=Resize /dev/sdb to fill the disk
+DefaultDependencies=no
+Before=local-fs-pre.target
+Wants=local-fs-pre.target
+
+[Service]
+User=root
+Group=root
+Type=oneshot
+ExecStart=/sbin/resize2fs /dev/sdb
+RemainAfterExit=yes
+
+[Install]
+WantedBy=local-fs.target
+EOF
+
+systemctl daemon-reload
+systemctl enable resize-sdb.service

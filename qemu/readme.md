@@ -140,6 +140,7 @@ WantedBy=multi-user.target
 
 EOF
 
+systemctl daemon-reload
 systemctl enable --now webdav.service
 
 ```
@@ -188,6 +189,7 @@ ExecStart=/home/fvtt/webhook.sh
 WantedBy=multi-user.target
 EOF
 
+systemctl daemon-reload
 systemctl enable webhook.service
 
 ```
@@ -208,7 +210,7 @@ node --version
 ## we need to run resize2fs /dev/sdb1 every time the vm boots
 
 ```
-cat <<EOF>> //etc/systemd/system/resize-sdb.service
+cat <<EOF> /etc/systemd/system/resize-sdb.service
 [Unit]
 Description=Resize /dev/sdb to fill the disk
 DefaultDependencies=no
