@@ -279,10 +279,10 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
     log "Sending data: ip=${IP_ADDRESS}, username=${USERNAME}"
     log "Using URL: $URL"
 
-    # Call webhook and capture status code and response body with verbose output
-    RESPONSE=$(curl -v -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
+    # Call webhook and capture status code and response body
+    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
         -H "Authorization: Bearer $HASH" \
-        --connect-timeout 2 2>&1)
+        --connect-timeout 2)
 
     # Extract status code (last 3 characters of the response)
     STATUS_CODE=$(echo "$RESPONSE" | tail -c 4)
