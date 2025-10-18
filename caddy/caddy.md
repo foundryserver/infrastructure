@@ -53,9 +53,9 @@ sudo ufw default allow outgoing
 sudo ufw allow in on eth0 from 192.168.0.0/16 to any port 22 proto tcp
 sudo ufw allow in on eth0 from 192.168.0.0/16 to any port 4334 proto tcp
 
-# Allow incoming connections to ports 80 and 443 only for IP 38.186.49.18x on eth1
-sudo ufw allow in on eth1 to 199.45.150.7 port 80 proto tcp
-sudo ufw allow in on eth1 to 199.45.150.7 port 443 proto tcp
+# Allow incoming connections to ports 80 and 443
+sudo ufw allow http
+sudo ufw allow https
 
 
 # Enable the firewall (with force to avoid prompt)
@@ -90,8 +90,7 @@ caddy add-package github.com/caddy-dns/cloudflare
 ```
 systemctl stop caddy
 systemctl disable caddy
-systemctl enable caddy-api
-systemctl start caddy-api
+systemctl enable --now caddy-api
 
 ```
 

@@ -5,94 +5,148 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        1.1.5
-# Purpose:        First-boot initialization script for Foundry VTT virtual machines
+# Version:        2.0.0
+# Purpose:        Comprehensive first-boot initialization script for Foundry VTT VMs
 # Author:         Brad Knorr
 # Created:        October 1, 2025
-# Last Modified:  October 8, 2025
+# Last Modified:  October 18, 2025
 #
 #===============================================================================
 # DESCRIPTION
 #===============================================================================
 #
-# This script performs one-time initialization tasks when a Foundry VTT VM
-# boots for the first time. It is designed to be idempotent and robust,
-# allowing safe re-execution if the script fails at any point.
+# This script performs comprehensive one-time initialization tasks when a 
+# Foundry VTT VM boots for the first time. It handles hostname configuration,
+# user setup, software installation, VM registration, and monitoring setup.
 #
-# The script will automatically disable itself after successful completion
-# by disabling the webhook.service systemd service.
+# The script is designed to be idempotent and robust, allowing safe re-execution
+# if it fails at any point. It automatically disables itself after successful
+# completion and includes comprehensive error handling and logging.
 #
 #===============================================================================
 # MAIN OPERATIONS
 #===============================================================================
 #
-# 1. STORAGE SETUP
-#    - Mounts SCSI device (/dev/sdb) to /home/fvtt/data
-#    - Creates fstab entry for persistent mounting
-#    - Sets up Foundry VTT directory structure
-#    - Configures proper ownership and permissions
+# 1. HOSTNAME & USER MANAGEMENT
+#    - Detects user at UID 1000 (customer username)
+#    - Sets VM hostname to match username if different
+#    - Updates /etc/hosts with new hostname
+#    - Reboots automatically if hostname changes are made
 #
-# 2. SOFTWARE INSTALLATION
-#    - Downloads and installs latest Foundry VTT package
-#    - Handles broken/incomplete installations
-#    - Verifies successful installation
+# 2. ENVIRONMENT SETUP
+#    - Loads environment variables from /etc/environment
+#    - Validates required NODE_ENV and LEVEL variables
+#    - Creates execution state tracking files
 #
-# 3. VM REGISTRATION
-#    - Generates authentication token based on hostname
+# 3. DIRECTORY STRUCTURE
+#    - Creates /home/fvtt/data/foundrydata directory tree
+#    - Sets up Config/, Data/, and Logs/ subdirectories
+#    - Creates /home/fvtt/data/foundrycore directory
+#    - Configures proper ownership (fvtt:fvtt) and permissions
+#
+# 4. SOFTWARE INSTALLATION
+#    - Downloads and installs latest Foundry VTT package from private repository
+#    - Handles broken/incomplete installations with cleanup and retry
+#    - Verifies installation status using dpkg
+#    - Sources from: https://foundry-apt.sfo3.digitaloceanspaces.com/
+#
+# 5. FOUNDRY VTT CONFIGURATION
+#    - Creates comprehensive options.json configuration file
+#    - Sets up hostname-based SSL configuration (hostname.knorrfamily.org)
+#    - Configures port 30000, data paths, and service settings
+#    - Restarts fvtt.service after configuration
+#
+# 6. VM REGISTRATION & API INTEGRATION
+#    - Generates SHA256 authentication token from hostname
+#    - Detects IP address of eth0 interface
 #    - Calls webhook API to register VM with management system
-#    - Retries with fallback endpoints on failure
-#    - Updates environment variables with response data
+#    - Implements retry logic with alternating endpoints (vmapi0/vmapi1)
+#    - Supports both dev (port 7070) and prod (port 8080) environments
+#    - Parses JSON response to extract customer level information
 #
-# 4. CLEANUP
+# 7. ENVIRONMENT VARIABLE UPDATES
+#    - Updates /etc/environment with customer level from API response
+#    - Replaces placeholder 'planlevel' with actual customer level (0, 1, 2, etc.)
+#    - Creates webhook.env.updated marker file for tracking
+#
+# 8. CLEANUP & SERVICE MANAGEMENT
 #    - Disables webhook.service to prevent re-execution
 #    - Creates completion markers for state tracking
+#    - Removes running marker and creates success marker
 #
 #===============================================================================
 # STATE TRACKING FILES
 #===============================================================================
 #
-# /home/fvtt/webhook.running      - Script is currently executing
-# /home/fvtt/webhook.succeeded    - Script completed successfully
-# /home/fvtt/webhook.failed       - Script encountered an error
+# /home/fvtt/webhook.running       - Script is currently executing
+# /home/fvtt/webhook.succeeded     - Script completed successfully  
+# /home/fvtt/webhook.failed        - Script encountered an error
+# /home/fvtt/webhook.env.updated   - Environment variables updated successfully
 #
 #===============================================================================
 # ENVIRONMENT REQUIREMENTS
 #===============================================================================
 #
-# Required:
-# - /etc/environment file with NODE_ENV variable
-# - jq package for JSON parsing
-# - curl for webhook API calls
-# - systemctl for service management
-# - User 'fvtt' must exist
+# System Requirements:
+# - User with UID 1000 must exist (becomes hostname and customer identifier)
+# - User 'fvtt' must exist for service ownership
+# - /etc/environment file with NODE_ENV and LEVEL variables
 #
-# Network:
-# - Access to foundry-apt.sfo3.digitaloceanspaces.com
-# - Access to vmapi0.vm.local and vmapi1.vm.local
+# Network Requirements:
+# - Access to foundry-apt.sfo3.digitaloceanspaces.com (Foundry VTT packages)
+# - Access to vmapi0.vm.local and vmapi1.vm.local (webhook registration)
+# - DNS resolution for .vm.local domains
+# - Network interface eth0 must be available
+#
+# Software Dependencies:
+# - jq (JSON parsing)
+# - curl (HTTP requests)  
+# - systemctl (service management)
+# - iptables (bandwidth monitoring setup)
+# - hostnamectl (hostname management)
+#
+#===============================================================================
+# API INTEGRATION
+#===============================================================================
+#
+# Webhook Endpoints:
+# - Development: http://vmapi[0|1].vm.local:7070/vm/webhook-init
+# - Production:  http://vmapi[0|1].vm.local:8080/vm/webhook-init
+#
+# Authentication: Bearer token "webhookInit" in Authorization header
+# Request Parameters: ip={eth0_ip}&username={hostname}
+# Response Format: JSON with 'level' field containing customer tier
+#
+# Retry Logic: 4 attempts maximum, alternating between vmapi0 and vmapi1
+# Timeout: 2 seconds connection timeout per attempt
 #
 #===============================================================================
 # USAGE
 #===============================================================================
 #
-# This script is typically executed automatically by systemd on first boot
-# via the webhook.service unit file. It can also be run manually:
+# Automatic Execution:
+#   Typically runs automatically via webhook.service systemd unit on first boot
 #
-#   sudo /path/to/webhook.sh
+# Manual Execution:
+#   sudo /home/fvtt/webhook.sh
 #
-# The script includes safety checks to prevent multiple concurrent executions
-# and will skip operations that have already been completed successfully.
+# The script includes comprehensive safety checks:
+# - Prevents multiple concurrent executions
+# - Skips operations already completed successfully
+# - Handles partial failures with resume capability
+# - Provides detailed logging for troubleshooting
 #
 #===============================================================================
 # LOGGING
 #===============================================================================
 #
-# All operations are logged with timestamps to:
-# - Console output (visible in systemd journal)
-# - /var/log/webhook-init.log (persistent log file)
+# Primary Log: /var/log/webhook-init.log (persistent, detailed)
+# Console Output: Visible in systemd journal (journalctl -u webhook.service)
+#
+# Log Format: [YYYY-MM-DD HH:MM:SS] MESSAGE
+# Error Handling: All errors logged with ERROR prefix before exit
 #
 #===============================================================================
-
-# version 1.1.0 - Enhanced with robustness checks
 
 # Logging function
 log() {
@@ -107,11 +161,30 @@ handle_error() {
     exit 1
 }
 
-# we need to exit this script if the hostname contains the string "template" or "tpl"
-# this is to prevent the script from running on template VMs used for cloning and dev
-if [[ "$(hostname)" == *"template"* || "$(hostname)" == *"tpl"* ]]; then
-    log "Exiting script: hostname contains 'template' or 'tpl'"
-    exit 0
+# take the username at uid of 1000
+USERNAME=$(getent passwd 1000 | cut -d: -f1)
+if [ -z "$USERNAME" ]; then
+    handle_error "User with UID 1000 not found. Exiting."
+fi
+
+# compare username to hostname and skip if they match. 
+if [ "$USERNAME" = "$(hostname)" ]; then
+    log "Username matches hostname, skipping hostname setup."
+else
+    log "Username does not match hostname, proceeding with hostname setup."
+    # Set the hostname of the vm to the username.
+    HOSTNAME="$USERNAME"
+    # Set the hostname
+    hostnamectl set-hostname "$HOSTNAME"
+    log "Hostname set to $HOSTNAME"
+
+    # change the hosts file to reflect the new hostname
+    sed -i "s/127.0.1.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts
+    log "Updated /etc/hosts with new hostname"
+
+    # Reboot vm to apply hostname changes.
+    log "Rebooting VM to apply hostname changes..."
+    reboot
 fi
 
 # Get environment variables from /etc/environment
@@ -132,7 +205,7 @@ fi
 # Check if the script has already completed successfully
 if [ -f /home/fvtt/webhook.succeeded ]; then
     log "Webhook has already been completed successfully"
-    exit 0
+    exit 0 
 fi
 
 # Create running marker
@@ -246,10 +319,6 @@ fi
 URL0="http://vmapi0.vm.local:$PORT/vm/webhook-init"
 URL1="http://vmapi1.vm.local:$PORT/vm/webhook-init"
 
-# Create an ipcToken for the webhook
-USERNAME=$(hostname)
-HASH=$(echo -n "$USERNAME" | openssl dgst -sha256 | awk '{print $2}')
-
 # Get the IP address of eth0
 IP_ADDRESS=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
 
@@ -281,7 +350,7 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
 
     # Call webhook and capture status code and response body
     RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
-        -H "Authorization: Bearer $HASH" \
+        -H "Authorization: Bearer webhookInit" \
         --connect-timeout 2)
 
     # Extract status code (last 3 characters of the response)
@@ -321,16 +390,6 @@ if [ $STATUS_CODE -eq 200 ]; then
         touch /home/fvtt/webhook.env.updated
     else
         handle_error "Failed to update environment variables"
-    fi
-
-    # Set cron jobs based on level (0 = 15 hr/mon , 1 = 3 hour idle shutdown)
-    if [ "$LEVEL" -eq 0 ]; then
-        (crontab -l 2>/dev/null; echo "0 * * * * /home/fvtt/uptime.sh >> /var/log/uptime_execution.log 2>&1") | crontab -
-        log "Set uptime cron job for level 0"
-    elif [ "$LEVEL" -eq 1 ]; then
-        (crontab -l 2>/dev/null; echo "*/10 * * * * /home/fvtt/bandwidth.sh >> /var/log/bandwidth_execution.log 2>&1") | crontab -
-        (crontab -l 2>/dev/null; echo "1 0 1 * * /home/fvtt/reset_iptables.sh >> /var/log/reset_iptables_execution.log 2>&1") | crontab -
-        log "Set bandwidth cron job for level 1"
     fi
 
     log "Successfully called webhook"

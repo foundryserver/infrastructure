@@ -1,0 +1,9 @@
+# Exclude shell scripts from Prettier formatting
+*.sh
+*.bash
+*.zsh
+
+# Let shell-format handle these file types
+**/*.sh
+**/*.bash
+**/*.zsh

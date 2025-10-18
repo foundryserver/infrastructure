@@ -147,19 +147,15 @@ systemctl enable --now webdav.service
 
 ## Create Webhook/bandwidth script file.
 
-1. webhook.sh - this file is located at /home/admin/webhook.sh
-2. bandwidth.sh - this file is located at /home/admin/bandwidth.sh
-3. reset_iptables.sh - this file is located at /home/admin/reset_iptables.sh
-4. setup_cron.sh - this file is located at /root
+1. webhook.sh - this file is located at /home/fvtt/webhook.sh
+2. monitor.sh - this file is located at /home/fvtt/monitor.sh
 
 Now set the perms and cron
 
 ```
 
 chmod +x /home/fvtt/webhook.sh
-chmod +x /home/fvtt/bandwidth.sh
-chmod +x /home/fvtt/reset_iptables.sh
-chmod +x /home/fvtt/uptime.sh
+chmod +x /home/fvtt/monitor.sh
 chown fvtt:fvtt -R /home/fvtt
 
 ```
