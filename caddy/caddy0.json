@@ -61,9 +61,9 @@
                           "handler": "map",
                           "mappings": [
                             {
-                              "@id": "harry.knorrfamily.org",
-                              "input": "harry.knorrfamily.org",
-                              "outputs": ["1.1.1.1"]
+                              "@id": "caddy-sync-version.internal",
+                              "input": "caddy-sync-version.internal",
+                              "outputs": ["0.0.0.1"]
                             }
                           ],
                           "source": "{http.request.host}"
