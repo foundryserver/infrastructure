@@ -1,0 +1,22 @@
+# Listen ip and port
+address: 0.0.0.0
+port: 3030
+
+debug: false
+
+# Prefix to apply to the WebDAV path-ing. Default is '/'.
+prefix: /
+
+# Whether the server runs behind a trusted proxy or not. When this is true,
+# the header X-Forwarded-For will be used for logging the remote addresses
+# of logging attempts (if available).
+behindProxy: true
+
+# The list of users. If the list is empty, then there will be no authentication.
+# Otherwise, basic authentication will automatically be configured.
+#
+users:
+  - username: "username"
+    password: "password"
+    directory: /home/fvtt/data/foundrydata
+    permissions: CRUD

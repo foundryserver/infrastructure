@@ -161,6 +161,32 @@ handle_error() {
     exit 1
 }
 
+# take the username at uid of 1000
+USERNAME=$(getent passwd 1000 | cut -d: -f1)
+if [ -z "$USERNAME" ]; then
+    handle_error "User with UID 1000 not found. Exiting."
+fi
+
+# compare username to hostname and skip if they match. 
+if [ "$USERNAME" = "$(hostname)" ]; then
+    log "Username matches hostname, skipping hostname setup."
+else
+    log "Username does not match hostname, proceeding with hostname setup."
+    # Set the hostname of the vm to the username.
+    HOSTNAME="$USERNAME"
+    # Set the hostname
+    hostnamectl set-hostname "$HOSTNAME"
+    log "Hostname set to $HOSTNAME"
+
+    # change the hosts file to reflect the new hostname
+    sed -i "s/127.0.1.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts
+    log "Updated /etc/hosts with new hostname"
+
+    # Reboot vm to apply hostname changes.
+    log "Rebooting VM to apply hostname changes..."
+    reboot
+fi
+
 # Get environment variables from /etc/environment
 # This is necessary to ensure that the script has access to the environment variables
 if [ -f /etc/environment ]; then
@@ -253,6 +279,35 @@ else
     fi
 fi
 
+# Setup options.json so foundry will start correctly.
+log "Setting up Foundry VTT options.json..."
+cat <<EOF > /home/fvtt/data/foundrydata/Config/options.json
+{
+    "port": 30000,
+    "upnp": false,
+    "fullscreen": false,
+    "hostname": "$HOSTNAME.knorrfamily.org",
+    "routePrefix": null,
+    "adminKey": null,
+    "sslCert": null,
+    "sslKey": null,
+    "awsConfig": null,
+    "dataPath": "/home/fvtt/data/foundrydata",
+    "proxySSL": false,
+    "proxyPort": 443,
+    "world": null,
+    "isElectron": false,
+    "isNode": true,
+    "isSSL": true,
+    "background": false,
+    "debug": false,
+    "demo": false,
+    "serviceConfig": "/home/fvtt/data/foundrycore/foundryserver.json",
+    "updateChannel": "release"
+}
+EOF
+systemctl restart fvtt.service || handle_error "Failed to restart fvtt service after options.json setup"
+
 # Set the port based on if it is dev or prod from NODE_ENV
 if [ "${NODE_ENV}" = "dev" ]; then
     PORT=7070
@@ -290,11 +345,11 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
     fi
 
     # Debug: Log the values being sent
-    log "Sending data: ip=${IP_ADDRESS}"
+    log "Sending data: ip=${IP_ADDRESS}, username=${USERNAME}"
     log "Using URL: $URL"
 
     # Call webhook and capture status code and response body
-    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}" \
+    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
         -H "Authorization: Bearer webhookInit" \
         --connect-timeout 2)
 
@@ -315,6 +370,28 @@ done
 
 # Check if we succeeded
 if [ $STATUS_CODE -eq 200 ]; then
+
+    # Parse the response body to get the JSON values
+    if ! command -v jq &>/dev/null; then
+        handle_error "jq could not be found. Please install jq to parse JSON."
+    fi
+
+    log "Setting up environment variables..."
+    LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
+    
+    # Check if the level was successfully parsed
+    if [ "$LEVEL" = "null" ] || [ -z "$LEVEL" ]; then
+        handle_error "Failed to parse level from webhook response"
+    fi
+    
+    # Update environment file
+    if sed -i "s/planlevel/$LEVEL/g" /etc/environment; then
+        log "Successfully updated environment variables with level: $LEVEL"
+        touch /home/fvtt/webhook.env.updated
+    else
+        handle_error "Failed to update environment variables"
+    fi
+
     log "Successfully called webhook"
     rm -f /home/fvtt/webhook.running
     touch /home/fvtt/webhook.succeeded
