@@ -1,32 +1,6 @@
-# CHANGELOG
-
-1.0.2 May 9, 25 - Initial Entry
-1.0.5 June 14, 25 - Added zip binary
-
-================================================================================================================
-
 # Setup of Base image for Customer VM
 
 This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you update the .env file to reflect this.
-
-## Bash Setup
-
-```
-echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-```
-
-## Fix Reslove for .local domains.
-
-```
-mkdir -p /etc/systemd/resolved.conf.d
-cat <<EOF > /etc/systemd/resolved.conf.d/forward-local.conf
-[Resolve]
-DNS=192.168.0.1 1.1.1.1
-Domains=~vm.local
-EOF
-sudo systemctl restart systemd-resolved
-
-```
 
 ## User Accounts
 
@@ -40,7 +14,7 @@ useradd -m -s /usr/sbin/nologin fvtt
 ```
 apt update
 apt upgrade -y
-apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip wireless-regdb -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
 apt autoremove -y
 ```
 
@@ -78,17 +52,33 @@ systemctl restart ssh
 ## Setup Swap
 
 ```
-fallocate -l 2G /swapfile
+fallocate -l 1.7G /swapfile
 chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
 echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ```
 
+## Mount Data rbd drive
+It is important to note that we are not creating any partions on this data drive. This makes expanding
+the disk very easy as we are not dealing with partions.  so we can just run resize2fs and life is good.
+We get the UUID from blkid for sdb and then use that to make the fstab entry.
+
+```
+# Get the UUID and store it in a variable
+UUID=$(sudo blkid -s UUID -o value /dev/sdb)
+
+# Add entry to fstab (replace /home/fvtt/data with your desired mount point)
+echo "UUID=$UUID /home/fvtt/data ext4 defaults 0 2" | sudo tee -a /etc/fstab
+
+# format the drive
+mkfs.ext4 /home/fvtt/data
+```
 ## Create fvtt user and service file.
 
 ```
-mkdir -p /home/fvtt/data
+mkdir -p /home/fvtt/data/foundrydata/{Config,Data,Logs}
+mkdir -p /home/fvtt/data/foundrycore
 mkdir -p /home/fvtt/webdav
 chown fvtt:fvtt -R /home/fvtt/*
 ```
@@ -195,10 +185,10 @@ systemctl enable webhook.service
 ```
 
 cd ~
-wget https://nodejs.org/download/release/latest/node-v24.9.0-linux-x64.tar.gz
-tar -xzf node-v24.9.0-linux-x64.tar.gz
-mv ~/node-v24.9.0-linux-x64/bin/node /usr/bin
-rm -rf node-v24.9.0-linux-x64\*
+wget https://nodejs.org/download/release/latest/node-v25.0.0-linux-x64.tar.gz
+tar -xzf node-v25.0.0-linux-x64.tar.gz
+mv ~/node-v25.0.0-linux-x64/bin/node /usr/bin
+rm -rf node-v25.0.0-linux-x64\*
 node --version
 
 ```
@@ -208,7 +198,7 @@ node --version
 ```
 cat <<EOF> /etc/systemd/system/resize-sdb.service
 [Unit]
-Description=Resize /dev/sdb to fill the disk
+Description=Resize /dev/sdb and filesystem to fill the disk
 DefaultDependencies=no
 Before=local-fs-pre.target
 Wants=local-fs-pre.target
@@ -217,7 +207,7 @@ Wants=local-fs-pre.target
 User=root
 Group=root
 Type=oneshot
-ExecStart=/sbin/resize2fs /dev/sdb
+ExecStart=/usr/sbin/resize2fs /dev/sdb
 RemainAfterExit=yes
 
 [Install]
@@ -241,6 +231,5 @@ sudo rm ~/.bash_history
 sudo rm /home/fvtt/webhook.success
 sudo rm /home/fvtt/webhook.failed
 sudo rm /home/fvtt/webhook.running
-sudo rm /home/fvtt/webhook.rebooted
 sudo shutdown -h now
 ```

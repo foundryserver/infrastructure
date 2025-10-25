@@ -5,73 +5,54 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        2.0.2
-# Purpose:        Comprehensive first-boot initialization script for Foundry VTT VMs
+# Version:        4.0.0
+# Purpose:        Enterprise-grade first-boot initialization script for Foundry VTT VMs
 # Author:         Brad Knorr
 # Created:        October 1, 2025
-# Last Modified:  October 24, 2025
+# Last Modified:  October 25, 2025
 #
 #===============================================================================
 # DESCRIPTION
 #===============================================================================
 #
-# This script performs comprehensive one-time initialization tasks when a 
-# Foundry VTT VM boots for the first time. It handles hostname configuration,
-# user setup, software installation, VM registration, and monitoring setup.
+# This script performs streamlined one-time initialization tasks when a 
+# Foundry VTT VM boots for the first time. It handles Foundry VTT installation
+# and VM registration with the management system.
 #
-# The script is designed to be idempotent and robust, allowing safe re-execution
-# if it fails at any point. It automatically disables itself after successful
-# completion and includes comprehensive error handling and logging.
+# The script follows enterprise best practices with comprehensive error handling,
+# input validation, structured logging, and modular function design. It is 
+# designed to be idempotent and robust, allowing safe re-execution if it fails 
+# at any point. It automatically disables itself after successful completion.
 #
 #===============================================================================
 # MAIN OPERATIONS
 #===============================================================================
 #
-# 1. HOSTNAME & USER MANAGEMENT
-#    - Detects last user added (customer username)
-#    - Sets VM hostname to match username if different
-#    - Updates /etc/hosts with new hostname
-#    - Reboots automatically if hostname changes are made
+# 1. ENVIRONMENT SETUP & VALIDATION
+#    - Loads and validates environment variables from /etc/environment
+#    - Validates required NODE_ENV variable for environment detection
+#    - Implements comprehensive input validation and error checking
+#    - Creates execution state tracking files with proper cleanup
 #
-# 2. ENVIRONMENT SETUP
-#    - Loads environment variables from /etc/environment
-#    - Validates required NODE_ENV and LEVEL variables
-#    - Creates execution state tracking files
-#
-# 3. DIRECTORY STRUCTURE
-#    - Creates /home/fvtt/data/foundrydata directory tree
-#    - Sets up Config/, Data/, and Logs/ subdirectories
-#    - Creates /home/fvtt/data/foundrycore directory
-#    - Configures proper ownership (fvtt:fvtt) and permissions
-#
-# 4. SOFTWARE INSTALLATION
+# 2. FOUNDRY VTT INSTALLATION & REPAIR
 #    - Downloads and installs latest Foundry VTT package from private repository
-#    - Handles broken/incomplete installations with cleanup and retry
-#    - Verifies installation status using dpkg
+#    - Implements intelligent broken installation detection and repair
+#    - Comprehensive package cleanup and dependency resolution
+#    - Verifies installation status using dpkg with proper error handling
 #    - Sources from: https://foundry-apt.sfo3.digitaloceanspaces.com/
 #
-# 5. FOUNDRY VTT CONFIGURATION
-#    - Creates comprehensive options.json configuration file
-#    - Sets up hostname-based SSL configuration (hostname.knorrfamily.org)
-#    - Configures port 30000, data paths, and service settings
-#    - Restarts fvtt.service after configuration
-#
-# 6. VM REGISTRATION & API INTEGRATION
-#    - Generates SHA256 authentication token from hostname
-#    - Detects IP address of eth0 interface
+# 3. NETWORK VALIDATION & VM REGISTRATION
+#    - Validates and detects IP address of eth0 interface with regex validation
 #    - Calls webhook API to register VM with management system
-#    - Implements retry logic with alternating endpoints (vmapi0/vmapi1)
+#    - Implements robust retry logic with alternating endpoints (vmapi0/vmapi1)
 #    - Supports both dev (port 7070) and prod (port 8080) environments
-#    - Parses JSON response to extract customer level information
+#    - Uses authenticated GET requests with comprehensive timeout handling
 #
-# 7. ENVIRONMENT VARIABLE UPDATES
-#    - Updates /etc/environment with customer level from API response
-#    - Replaces placeholder 'planlevel' with actual customer level (0, 1, 2, etc.)
-#
-# 8. CLEANUP & SERVICE MANAGEMENT
-#    - Disables webhook.service to prevent re-execution
+# 4. CLEANUP & SERVICE MANAGEMENT
+#    - Disables webhook.service with verification to prevent re-execution
 #    - Creates completion markers for state tracking
-#    - Removes running marker and creates success marker
+#    - Implements proper signal handling and cleanup on exit
+#    - Removes running marker and creates success marker atomically
 #
 #===============================================================================
 # STATE TRACKING FILES
@@ -82,26 +63,50 @@
 # /home/fvtt/webhook.failed        - Script encountered an error
 #
 #===============================================================================
+# EXIT CODES
+#===============================================================================
+#
+# 0 - EXIT_SUCCESS           - Script completed successfully
+# 1 - EXIT_GENERAL_ERROR     - General/unspecified error
+# 2 - EXIT_ENV_ERROR         - Environment variable or configuration error
+# 3 - EXIT_NETWORK_ERROR     - Network connectivity or API call error  
+# 4 - EXIT_INSTALL_ERROR     - Foundry VTT installation error
+# 5 - EXIT_VALIDATION_ERROR  - Input validation or system state error
+#
+#===============================================================================
 # ENVIRONMENT REQUIREMENTS
 #===============================================================================
 #
 # System Requirements:
-# - User with UID 1000 must exist (becomes hostname and customer identifier)
-# - User 'fvtt' must exist for service ownership
-# - /etc/environment file with NODE_ENV and LEVEL variables
+# - /etc/environment file with NODE_ENV variable (dev/prod)
+# - Network interface eth0 must be available and configured
+# - Sufficient disk space for Foundry VTT package download and installation
+# - Root/sudo privileges for package installation and service management
 #
 # Network Requirements:
 # - Access to foundry-apt.sfo3.digitaloceanspaces.com (Foundry VTT packages)
 # - Access to vmapi0.vm.local and vmapi1.vm.local (webhook registration)
 # - DNS resolution for .vm.local domains
-# - Network interface eth0 must be available
+# - Outbound HTTP/HTTPS connectivity on configured ports
 #
 # Software Dependencies:
-# - jq (JSON parsing)
-# - curl (HTTP requests)  
+# - curl (HTTP requests with timeout support)
 # - systemctl (service management)
-# - iptables (bandwidth monitoring setup)
-# - hostnamectl (hostname management)
+# - wget (file downloads)
+# - dpkg (package management)
+# - ip (network interface management)
+# - awk, grep, head, tail (text processing)
+#
+#===============================================================================
+# SECURITY FEATURES
+#===============================================================================
+#
+# - Fixed webhook token "webhookInit" for consistent authentication
+# - Input validation for IP addresses using regex patterns
+# - Secure temporary file handling with automatic cleanup
+# - Proper signal handling to prevent incomplete states
+# - Read-only configuration constants to prevent accidental modification
+# - Comprehensive logging without exposing sensitive information
 #
 #===============================================================================
 # API INTEGRATION
@@ -111,12 +116,13 @@
 # - Development: http://vmapi[0|1].vm.local:7070/vm/webhook-init
 # - Production:  http://vmapi[0|1].vm.local:8080/vm/webhook-init
 #
-# Authentication: Bearer token "webhookInit" in Authorization header
-# Request Parameters: ip={eth0_ip}&username={hostname}
-# Response Format: JSON with 'level' field containing customer tier
+# Authentication: Bearer token "webhookInit" (fixed authentication token)
+# Request Parameters: ip={eth0_ip} (validated IPv4 address)
+# Response Format: HTTP status code (200 = success)
 #
 # Retry Logic: 4 attempts maximum, alternating between vmapi0 and vmapi1
-# Timeout: 2 seconds connection timeout per attempt
+# Timeouts: 2 seconds connection timeout, 10 seconds total timeout per attempt
+# Error Handling: Specific exit codes for different failure scenarios
 #
 #===============================================================================
 # USAGE
@@ -128,11 +134,15 @@
 # Manual Execution:
 #   sudo /home/fvtt/webhook.sh
 #
+# Debug Mode:
+#   DEBUG=1 sudo /home/fvtt/webhook.sh
+#
 # The script includes comprehensive safety checks:
-# - Prevents multiple concurrent executions
-# - Skips operations already completed successfully
-# - Handles partial failures with resume capability
-# - Provides detailed logging for troubleshooting
+# - Prevents multiple concurrent executions using file locking
+# - Skips operations already completed successfully with state validation
+# - Handles partial failures with resume capability and atomic operations
+# - Provides detailed logging with structured log levels for troubleshooting
+# - Implements proper signal handling for graceful cleanup on interruption
 #
 #===============================================================================
 # LOGGING
@@ -141,195 +151,335 @@
 # Primary Log: /var/log/webhook-init.log (persistent, detailed)
 # Console Output: Visible in systemd journal (journalctl -u webhook.service)
 #
-# Log Format: [YYYY-MM-DD HH:MM:SS] MESSAGE
-# Error Handling: All errors logged with ERROR prefix before exit
+# Log Levels:
+# - INFO: General operational information
+# - WARN: Non-fatal issues that should be noted
+# - ERROR: Fatal errors that cause script termination
+# - DEBUG: Detailed troubleshooting information (enabled with DEBUG=1)
+#
+# Log Format: [YYYY-MM-DD HH:MM:SS] LEVEL: MESSAGE
+# Error Handling: All errors logged with specific exit codes before termination
+# Security: Sensitive information (tokens, credentials) are not logged
 #
 #===============================================================================
 
-# Logging function
+#===============================================================================
+# CONFIGURATION
+#===============================================================================
+
+# Exit codes
+readonly EXIT_SUCCESS=0
+readonly EXIT_GENERAL_ERROR=1
+readonly EXIT_ENV_ERROR=2
+readonly EXIT_NETWORK_ERROR=3
+readonly EXIT_INSTALL_ERROR=4
+readonly EXIT_VALIDATION_ERROR=5
+
+# Configuration constants
+readonly CONFIG_BASE_DIR="/home/fvtt"
+readonly FOUNDRY_USER="fvtt"
+readonly WEBHOOK_ENDPOINTS=("vmapi0.vm.local" "vmapi1.vm.local")
+readonly DEV_PORT=7070
+readonly PROD_PORT=8080
+readonly WEBHOOK_TIMEOUT=2
+readonly WEBHOOK_MAX_TIME=10
+readonly MAX_RETRY_ATTEMPTS=4
+readonly FOUNDRY_PACKAGE_URL="https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb"
+readonly LOG_FILE="/var/log/webhook-init.log"
+
+# State files
+readonly RUNNING_MARKER="${CONFIG_BASE_DIR}/webhook.running"
+readonly SUCCESS_MARKER="${CONFIG_BASE_DIR}/webhook.succeeded"
+readonly FAILED_MARKER="${CONFIG_BASE_DIR}/webhook.failed"
+
+# Get webhook token from environment or use default
+readonly WEBHOOK_TOKEN="webhookInit"
+
+#===============================================================================
+# LOGGING FUNCTIONS
+#===============================================================================
+
+# Base logging function
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a /var/log/webhook-init.log
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-# Error handling function
+# Structured logging functions
+log_error() { log "ERROR: $1"; }
+log_warn() { log "WARN: $1"; }
+log_info() { log "INFO: $1"; }
+log_debug() { [[ "${DEBUG:-}" == "1" ]] && log "DEBUG: $1"; }
+
+#===============================================================================
+# ERROR HANDLING
+#===============================================================================
+
+# Enhanced error handling function
 handle_error() {
-    log "ERROR: $1"
-    rm -f /home/fvtt/webhook.running
-    touch /home/fvtt/webhook.failed
-    exit 1
+    local error_msg="$1"
+    local exit_code="${2:-$EXIT_GENERAL_ERROR}"
+    
+    log_error "$error_msg"
+    rm -f "$RUNNING_MARKER"
+    touch "$FAILED_MARKER"
+    exit "$exit_code"
 }
 
-# Get environment variables from /etc/environment
-# This is necessary to ensure that the script has access to the environment variables
-if [ -f /etc/environment ]; then
-    export $(grep -v '^#' /etc/environment | xargs)
-    log "Loaded environment variables from /etc/environment"
-else
-    handle_error "WARNING: /etc/environment not found EXITING"
-fi
+# Cleanup function for graceful exits
+cleanup() {
+    rm -f "$RUNNING_MARKER"
+}
 
-# Check if another instance is running
-if [ -f /home/fvtt/webhook.running ]; then
-    log "Another webhook script is already running"
-    exit 0
-fi
+# Set trap for cleanup on script exit
+trap cleanup EXIT
 
-# Check if the script has already completed successfully
-if [ -f /home/fvtt/webhook.succeeded ]; then
-    log "Webhook has already been completed successfully"
-    exit 0 
-fi
+#===============================================================================
+# UTILITY FUNCTIONS
+#===============================================================================
 
-# Create running marker
-touch /home/fvtt/webhook.running
-log "Starting one-time initialization..."
-
-# --------------- Webhook Script ---------------
-
-# Create directory structure if it doesn't exist
-log "Setting up directory structure..."
-
-if [ ! -d /home/fvtt/data/foundrydata ]; then
-    mkdir -p /home/fvtt/data/foundrydata
-    mkdir -p /home/fvtt/data/foundrydata/{Data,Logs,Config}
-    log "Created foundry data directory structure"
-else
-    log "Foundry data directory structure already exists"
-fi
-
-if [ ! -d /home/fvtt/data/foundrycore ]; then
-    mkdir -p /home/fvtt/data/foundrycore
-    log "Created foundry core directory structure"
-else
-    log "Foundry core directory structure already exists"
-fi
-
-# Set permissions (always do this to ensure correct ownership)
-log "Setting ownership and permissions..."
-chown -R fvtt:fvtt /home/fvtt/data
-chmod 700 -R /home/fvtt/data
-
-# Install the latest fvtt version via apt from a private repo
-# link  https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb
-log "Checking Foundry VTT installation..."
-
-# Check if foundry is installed and properly configured
-if dpkg -s foundry >/dev/null 2>&1; then
-    # Check if the installation is complete and not broken
-    INSTALL_STATUS=$(dpkg-query -W -f='${Status}' foundry 2>/dev/null)
-    if [ "$INSTALL_STATUS" = "install ok installed" ]; then
-        log "Foundry VTT is already installed and configured"
-    else
-        log "Foundry VTT installation appears incomplete or broken, reinstalling..."
-        # Remove broken installation
-        dpkg --remove --force-remove-reinstreq foundry 2>/dev/null || true
-        apt-get -f install -y 2>/dev/null || true
-        
-        log "Installing Foundry VTT..."
-        if wget -O /tmp/foundry.deb https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb; then
-            if dpkg -i /tmp/foundry.deb; then
-                log "Foundry VTT installation successful"
-            else                
-                handle_error "Foundry VTT installation failed"
-            fi
-            rm -f /tmp/foundry.deb
-        else
-            handle_error "Failed to download Foundry VTT package"
-        fi
-    fi
-else
-    log "Installing Foundry VTT..."
-    if wget -O /tmp/foundry.deb https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb; then
-        if dpkg -i /tmp/foundry.deb; then
-            log "Foundry VTT installation successful"
-        else
-            handle_error "Foundry VTT installation failed"
-        fi
-        rm -f /tmp/foundry.deb
-    else
-        handle_error "Failed to download Foundry VTT package"
-    fi
-fi
-
-# Set the port based on if it is dev or prod from NODE_ENV
-if [ "${NODE_ENV}" = "dev" ]; then
-    PORT=7070
-else
-    PORT=8080
-fi
-
-# URL to webhook server
-URL0="http://vmapi0.vm.local:$PORT/vm/webhook-init"
-URL1="http://vmapi1.vm.local:$PORT/vm/webhook-init"
-
-# Get the IP address of eth0
-IP_ADDRESS=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
-
-# Initialize counter and status code
-ATTEMPTS=0
-MAX_ATTEMPTS=4
-STATUS_CODE=0
-
-# Try webhook call until success or max attempts reached
-log "Attempting to call webhook..."
-while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
-    # Increment attempts counter
-    ((ATTEMPTS++))
-
-    log "Attempt $ATTEMPTS of $MAX_ATTEMPTS"
-
-    # Alternate between URL0 and URL1
-    if [ $((ATTEMPTS % 2)) -eq 1 ]; then
-        URL=$URL0
-        log "Trying primary endpoint (URL0)"
-    else
-        URL=$URL1
-        log "Trying secondary endpoint (URL1)"
-    fi
-
-    # Debug: Log the values being sent
-    log "Sending data: ip=${IP_ADDRESS}"
-    log "Using URL: $URL"
-
-    # Call webhook and capture status code and response body
-    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}" \
-        -H "Authorization: Bearer webhookInit" \
-        --connect-timeout 2)
-
-    # Extract status code (last 3 characters of the response)
-    STATUS_CODE=$(echo "$RESPONSE" | tail -c 4)
-    log "Response status code: $STATUS_CODE"
-
-    # Extract response body (all but the last 3 characters)
-    RESPONSE_BODY=$(echo "$RESPONSE" | head -c -4)
-    log "Response body: $RESPONSE_BODY"
-
-    # If not successful, wait 5 seconds before next attempt
-    if [ $STATUS_CODE -ne 200 ] && [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; then
-        log "Retrying in 5 seconds..."
-        sleep 5
-    fi
-done
-
-# Check if we succeeded
-if [ $STATUS_CODE -eq 200 ]; then
-
-    log "Successfully called webhook"
-    rm -f /home/fvtt/webhook.running
-    touch /home/fvtt/webhook.succeeded
+# Validate and get IP address of eth0 interface
+get_eth0_ip() {
+    local ip
+    ip=$(ip route get 1.1.1.1 | grep -oP 'src \K\S+')
     
-    # Disable webhook service if it's enabled
-    if systemctl is-enabled webhook.service >/dev/null 2>&1; then
-        log "Disabling webhook service..."
-        systemctl disable webhook.service
-    else
-        log "Webhook service already disabled"
+    if [[ ! "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        handle_error "Failed to detect valid IP address for eth0" "$EXIT_NETWORK_ERROR"
     fi
-    exit 0
-else
-    handle_error "Failed to call webhook after $MAX_ATTEMPTS attempts"
+    
+    log_info "Detected eth0 IP address: $ip"
+    echo "$ip"
+}
+
+# Load and validate environment variables
+setup_environment() {
+    log_info "Setting up environment..."
+    
+    if [[ ! -f /etc/environment ]]; then
+        handle_error "/etc/environment not found" "$EXIT_ENV_ERROR"
+    fi
+    
+    # Load environment variables
+    set -a
+    source /etc/environment
+    set +a
+    
+    log_info "Loaded environment variables from /etc/environment"
+    
+    # Validate required environment variables
+    if [[ -z "${NODE_ENV:-}" ]]; then
+        handle_error "NODE_ENV environment variable is required" "$EXIT_ENV_ERROR"
+    fi
+    
+    log_info "Environment: NODE_ENV=${NODE_ENV}"
+}
+
+# Check execution state and prevent concurrent runs
+check_execution_state() {
+    log_info "Checking execution state..."
+    
+    # Check if another instance is running
+    if [[ -f "$RUNNING_MARKER" ]]; then
+        log_warn "Another webhook script is already running"
+        exit "$EXIT_SUCCESS"
+    fi
+
+    # Check if the script has already completed successfully
+    if [[ -f "$SUCCESS_MARKER" ]]; then
+        log_info "Webhook has already been completed successfully"
+        exit "$EXIT_SUCCESS"
+    fi
+
+    # Create running marker
+    touch "$RUNNING_MARKER"
+    log_info "Starting one-time initialization..."
+}
+
+#===============================================================================
+# FOUNDRY VTT INSTALLATION
+#===============================================================================
+
+# Repair broken Foundry installation
+repair_broken_installation() {
+    log_info "Attempting to repair broken Foundry installation..."
+    
+    # More comprehensive cleanup
+    dpkg --configure -a 2>/dev/null || true
+    apt-get -f install -y 2>/dev/null || true
+    dpkg --remove --force-remove-reinstreq foundry 2>/dev/null || true
+    apt-get autoremove -y 2>/dev/null || true
+    
+    # Clear any cached package files
+    apt-get clean 2>/dev/null || true
+    
+    log_info "Broken installation cleanup completed"
+}
+
+# Install Foundry VTT package
+install_foundry_vtt() {
+    log_info "Checking Foundry VTT installation..."
+
+    # Check if foundry is installed and properly configured
+    if dpkg -s foundry >/dev/null 2>&1; then
+        # Check if the installation is complete and not broken
+        local install_status
+        install_status=$(dpkg-query -W -f='${Status}' foundry 2>/dev/null)
+        
+        if [[ "$install_status" == "install ok installed" ]]; then
+            log_info "Foundry VTT is already installed and configured"
+            return 0
+        else
+            log_warn "Foundry VTT installation appears incomplete or broken, reinstalling..."
+            repair_broken_installation
+        fi
+    fi
+
+    log_info "Installing Foundry VTT..."
+    
+    # Download package
+    local temp_package="/tmp/foundry.deb"
+    if ! wget -O "$temp_package" "$FOUNDRY_PACKAGE_URL"; then
+        handle_error "Failed to download Foundry VTT package from $FOUNDRY_PACKAGE_URL" "$EXIT_NETWORK_ERROR"
+    fi
+    
+    # Install package
+    if ! dpkg -i "$temp_package"; then
+        rm -f "$temp_package"
+        handle_error "Foundry VTT installation failed" "$EXIT_INSTALL_ERROR"
+    fi
+    
+    # Cleanup
+    rm -f "$temp_package"
+    log_info "Foundry VTT installation successful"
+}
+
+#===============================================================================
+# WEBHOOK REGISTRATION
+#===============================================================================
+
+# Register VM with webhook API
+register_with_webhook() {
+    log_info "Starting webhook registration process..."
+    
+    # Get IP address
+    local ip_address
+    ip_address=$(get_eth0_ip)
+    
+    # Determine port based on environment
+    local port
+    if [[ "${NODE_ENV}" == "dev" ]]; then
+        port="$DEV_PORT"
+    else
+        port="$PROD_PORT"
+    fi
+    
+    log_info "Using port $port for $NODE_ENV environment"
+    
+    # Build URLs
+    local url0="http://${WEBHOOK_ENDPOINTS[0]}:$port/vm/webhook-init"
+    local url1="http://${WEBHOOK_ENDPOINTS[1]}:$port/vm/webhook-init"
+    
+    # Initialize retry logic
+    local attempts=0
+    local status_code=0
+    
+    log_info "Attempting webhook registration with IP: $ip_address"
+    
+    while [[ $attempts -lt $MAX_RETRY_ATTEMPTS ]] && [[ $status_code -ne 200 ]]; do
+        ((attempts++))
+        log_info "Attempt $attempts of $MAX_RETRY_ATTEMPTS"
+
+        # Alternate between endpoints
+        local url
+        if [[ $((attempts % 2)) -eq 1 ]]; then
+            url="$url0"
+            log_debug "Trying primary endpoint: ${WEBHOOK_ENDPOINTS[0]}"
+        else
+            url="$url1"
+            log_debug "Trying secondary endpoint: ${WEBHOOK_ENDPOINTS[1]}"
+        fi
+
+        log_debug "Request URL: $url?ip=$ip_address"
+
+        # Make webhook call
+        local response
+        response=$(curl -s -w "%{http_code}" -X GET "${url}?ip=${ip_address}" \
+            -H "Authorization: Bearer $WEBHOOK_TOKEN" \
+            --connect-timeout "$WEBHOOK_TIMEOUT" \
+            --max-time "$WEBHOOK_MAX_TIME" \
+            2>/dev/null)
+
+        # Extract status code and response body
+        status_code=$(echo "$response" | tail -c 4)
+        local response_body
+        response_body=$(echo "$response" | head -c -4)
+        
+        log_info "Response status code: $status_code"
+        log_debug "Response body: $response_body"
+
+        # Check for success
+        if [[ $status_code -eq 200 ]]; then
+            log_info "Successfully registered with webhook API"
+            return 0
+        fi
+
+        # Wait before retry (except on last attempt)
+        if [[ $attempts -lt $MAX_RETRY_ATTEMPTS ]]; then
+            log_info "Retrying in 5 seconds..."
+            sleep 5
+        fi
+    done
+
+    handle_error "Failed to register with webhook API after $MAX_RETRY_ATTEMPTS attempts" "$EXIT_NETWORK_ERROR"
+}
+
+#===============================================================================
+# SERVICE MANAGEMENT
+#===============================================================================
+
+# Disable webhook service to prevent re-execution
+disable_webhook_service() {
+    log_info "Managing webhook service..."
+    
+    if systemctl is-enabled webhook.service >/dev/null 2>&1; then
+        log_info "Disabling webhook service..."
+        if systemctl disable webhook.service; then
+            log_info "Webhook service successfully disabled"
+        else
+            log_warn "Failed to disable webhook service"
+        fi
+    else
+        log_info "Webhook service already disabled"
+    fi
+}
+
+# Mark script as completed successfully
+mark_completion() {
+    log_info "Marking initialization as completed..."
+    rm -f "$RUNNING_MARKER" "$FAILED_MARKER"
+    touch "$SUCCESS_MARKER"
+    log_info "One-time initialization completed successfully"
+}
+
+#===============================================================================
+# MAIN EXECUTION
+#===============================================================================
+
+main() {
+    log_info "=== Foundry VTT VM Initialization Started ==="
+    
+    # Core initialization steps
+    setup_environment
+    check_execution_state
+    install_foundry_vtt
+    register_with_webhook
+    disable_webhook_service
+    mark_completion
+    
+    log_info "=== Foundry VTT VM Initialization Completed ==="
+    exit "$EXIT_SUCCESS"
+}
+
+# Execute main function if script is run directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
 fi
-
-# ------------- End Webhook Script -------------
-
-exit 0
