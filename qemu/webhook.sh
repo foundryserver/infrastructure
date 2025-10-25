@@ -5,11 +5,11 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        2.0.0
+# Version:        2.0.2
 # Purpose:        Comprehensive first-boot initialization script for Foundry VTT VMs
 # Author:         Brad Knorr
 # Created:        October 1, 2025
-# Last Modified:  October 18, 2025
+# Last Modified:  October 24, 2025
 #
 #===============================================================================
 # DESCRIPTION
@@ -28,7 +28,7 @@
 #===============================================================================
 #
 # 1. HOSTNAME & USER MANAGEMENT
-#    - Detects user at UID 1000 (customer username)
+#    - Detects last user added (customer username)
 #    - Sets VM hostname to match username if different
 #    - Updates /etc/hosts with new hostname
 #    - Reboots automatically if hostname changes are made
@@ -67,7 +67,6 @@
 # 7. ENVIRONMENT VARIABLE UPDATES
 #    - Updates /etc/environment with customer level from API response
 #    - Replaces placeholder 'planlevel' with actual customer level (0, 1, 2, etc.)
-#    - Creates webhook.env.updated marker file for tracking
 #
 # 8. CLEANUP & SERVICE MANAGEMENT
 #    - Disables webhook.service to prevent re-execution
@@ -81,7 +80,6 @@
 # /home/fvtt/webhook.running       - Script is currently executing
 # /home/fvtt/webhook.succeeded     - Script completed successfully  
 # /home/fvtt/webhook.failed        - Script encountered an error
-# /home/fvtt/webhook.env.updated   - Environment variables updated successfully
 #
 #===============================================================================
 # ENVIRONMENT REQUIREMENTS
@@ -162,9 +160,9 @@ handle_error() {
 }
 
 # take the username at uid of 1000
-USERNAME=$(getent passwd 1000 | cut -d: -f1)
+USERNAME=$(getent passwd | awk -F: '$3 >= 1000 && $3 != 65534 {print $1 ":" $3}' | sort -t: -k2 -n | tail -1 | cut -d: -f1)
 if [ -z "$USERNAME" ]; then
-    handle_error "User with UID 1000 not found. Exiting."
+    handle_error "No regular user found. Exiting."
 fi
 
 # compare username to hostname and skip if they match. 
@@ -183,8 +181,15 @@ else
     log "Updated /etc/hosts with new hostname"
 
     # Reboot vm to apply hostname changes.
-    log "Rebooting VM to apply hostname changes..."
-    reboot
+    if [ ! -f /home/fvtt/webhook.rebooted ]; then
+        log "Rebooting VM to apply hostname changes..."
+        reboot
+        touch /home/fvtt/webhook.rebooted
+        exit 0
+    else
+        log "VM has already been rebooted for hostname changes, exiting to prevent loop"
+        exit 0
+    fi
 fi
 
 # Get environment variables from /etc/environment
@@ -384,10 +389,14 @@ if [ $STATUS_CODE -eq 200 ]; then
         handle_error "Failed to parse level from webhook response"
     fi
     
-    # Update environment file
+    # Update environment file and verify the replacement occurred
     if sed -i "s/planlevel/$LEVEL/g" /etc/environment; then
-        log "Successfully updated environment variables with level: $LEVEL"
-        touch /home/fvtt/webhook.env.updated
+        # Verify that planlevel no longer exists in the file
+        if grep -q "planlevel" /etc/environment; then
+            handle_error "Failed to replace planlevel in environment file - placeholder still exists"
+        else
+            log "Successfully updated environment variables with level: $LEVEL"
+        fi
     else
         handle_error "Failed to update environment variables"
     fi

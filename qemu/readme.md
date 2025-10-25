@@ -242,5 +242,6 @@ sudo rm ~/.bash_history
 sudo rm /home/fvtt/webhook.success
 sudo rm /home/fvtt/webhook.failed
 sudo rm /home/fvtt/webhook.running
+sudo rm /home/fvtt/webhook.rebooted
 sudo shutdown -h now
 ```
