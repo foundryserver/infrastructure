@@ -231,6 +231,7 @@ sudo systemctl enable resize-sdb.service
 ## Debian Reset VM for templating
 
 ```
+sudo cloud-init clean --logs --seed
 sudo rm -f /etc/ssh/ssh_host*
 sudo truncate -s 0 /etc/machine-id
 sudo find /var/log -type f -exec truncate -s 0 {} \;
@@ -241,6 +242,5 @@ sudo rm ~/.bash_history
 sudo rm /home/fvtt/webhook.success
 sudo rm /home/fvtt/webhook.failed
 sudo rm /home/fvtt/webhook.running
-sudo rm /home/fvtt/webhook.rebooted
 sudo shutdown -h now
 ```

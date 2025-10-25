@@ -5,11 +5,11 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        2.0.2
+# Version:        2.0.0
 # Purpose:        Comprehensive first-boot initialization script for Foundry VTT VMs
 # Author:         Brad Knorr
 # Created:        October 1, 2025
-# Last Modified:  October 24, 2025
+# Last Modified:  October 18, 2025
 #
 #===============================================================================
 # DESCRIPTION
@@ -28,7 +28,7 @@
 #===============================================================================
 #
 # 1. HOSTNAME & USER MANAGEMENT
-#    - Detects last user added (customer username)
+#    - Detects user at UID 1000 (customer username)
 #    - Sets VM hostname to match username if different
 #    - Updates /etc/hosts with new hostname
 #    - Reboots automatically if hostname changes are made
@@ -67,6 +67,7 @@
 # 7. ENVIRONMENT VARIABLE UPDATES
 #    - Updates /etc/environment with customer level from API response
 #    - Replaces placeholder 'planlevel' with actual customer level (0, 1, 2, etc.)
+#    - Creates webhook.env.updated marker file for tracking
 #
 # 8. CLEANUP & SERVICE MANAGEMENT
 #    - Disables webhook.service to prevent re-execution
@@ -80,6 +81,7 @@
 # /home/fvtt/webhook.running       - Script is currently executing
 # /home/fvtt/webhook.succeeded     - Script completed successfully  
 # /home/fvtt/webhook.failed        - Script encountered an error
+# /home/fvtt/webhook.env.updated   - Environment variables updated successfully
 #
 #===============================================================================
 # ENVIRONMENT REQUIREMENTS
@@ -277,6 +279,35 @@ else
     fi
 fi
 
+# Setup options.json so foundry will start correctly.
+log "Setting up Foundry VTT options.json..."
+cat <<EOF > /home/fvtt/data/foundrydata/Config/options.json
+{
+    "port": 30000,
+    "upnp": false,
+    "fullscreen": false,
+    "hostname": "$HOSTNAME.knorrfamily.org",
+    "routePrefix": null,
+    "adminKey": null,
+    "sslCert": null,
+    "sslKey": null,
+    "awsConfig": null,
+    "dataPath": "/home/fvtt/data/foundrydata",
+    "proxySSL": false,
+    "proxyPort": 443,
+    "world": null,
+    "isElectron": false,
+    "isNode": true,
+    "isSSL": true,
+    "background": false,
+    "debug": false,
+    "demo": false,
+    "serviceConfig": "/home/fvtt/data/foundrycore/foundryserver.json",
+    "updateChannel": "release"
+}
+EOF
+systemctl restart fvtt.service || handle_error "Failed to restart fvtt service after options.json setup"
+
 # Set the port based on if it is dev or prod from NODE_ENV
 if [ "${NODE_ENV}" = "dev" ]; then
     PORT=7070
@@ -314,11 +345,11 @@ while [ $ATTEMPTS -lt $MAX_ATTEMPTS ] && [ $STATUS_CODE -ne 200 ]; do
     fi
 
     # Debug: Log the values being sent
-    log "Sending data: ip=${IP_ADDRESS}"
+    log "Sending data: ip=${IP_ADDRESS}, username=${USERNAME}"
     log "Using URL: $URL"
 
     # Call webhook and capture status code and response body
-    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}" \
+    RESPONSE=$(curl -s -w "%{http_code}" -X GET "${URL}?ip=${IP_ADDRESS}&username=${USERNAME}" \
         -H "Authorization: Bearer webhookInit" \
         --connect-timeout 2)
 
