@@ -159,32 +159,6 @@ handle_error() {
     exit 1
 }
 
-# take the username at uid of 1000
-USERNAME=$(getent passwd 1000 | cut -d: -f1)
-if [ -z "$USERNAME" ]; then
-    handle_error "User with UID 1000 not found. Exiting."
-fi
-
-# compare username to hostname and skip if they match. 
-if [ "$USERNAME" = "$(hostname)" ]; then
-    log "Username matches hostname, skipping hostname setup."
-else
-    log "Username does not match hostname, proceeding with hostname setup."
-    # Set the hostname of the vm to the username.
-    HOSTNAME="$USERNAME"
-    # Set the hostname
-    hostnamectl set-hostname "$HOSTNAME"
-    log "Hostname set to $HOSTNAME"
-
-    # change the hosts file to reflect the new hostname
-    sed -i "s/127.0.1.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts
-    log "Updated /etc/hosts with new hostname"
-
-    # Reboot vm to apply hostname changes.
-    log "Rebooting VM to apply hostname changes..."
-    reboot
-fi
-
 # Get environment variables from /etc/environment
 # This is necessary to ensure that the script has access to the environment variables
 if [ -f /etc/environment ]; then
@@ -339,27 +313,6 @@ done
 
 # Check if we succeeded
 if [ $STATUS_CODE -eq 200 ]; then
-
-    # Parse the response body to get the JSON values
-    if ! command -v jq &>/dev/null; then
-        handle_error "jq could not be found. Please install jq to parse JSON."
-    fi
-
-    log "Setting up environment variables..."
-    LEVEL=$(echo "$RESPONSE_BODY" | jq -r '.level')
-    
-    # Check if the level was successfully parsed
-    if [ "$LEVEL" = "null" ] || [ -z "$LEVEL" ]; then
-        handle_error "Failed to parse level from webhook response"
-    fi
-    
-    # Update environment file
-    if sed -i "s/planlevel/$LEVEL/g" /etc/environment; then
-        log "Successfully updated environment variables with level: $LEVEL"
-        touch /home/fvtt/webhook.env.updated
-    else
-        handle_error "Failed to update environment variables"
-    fi
 
     log "Successfully called webhook"
     rm -f /home/fvtt/webhook.running
