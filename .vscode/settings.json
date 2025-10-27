@@ -10,11 +10,6 @@
   "editor.formatOnSave": false,
   "editor.formatOnPaste": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "files.associations": {
-    "*.sh": "shellscript",
-    "*.bash": "shellscript"
-  },
-  "prettier.enable": false,
   "[javascript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
@@ -30,5 +25,13 @@
   "[css]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "files.associations": {
+    "*.sh": "shellscript",
+    "*.bash": "shellscript"
   }
 }

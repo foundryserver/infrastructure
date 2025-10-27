@@ -16,8 +16,8 @@
 #===============================================================================
 #
 # This script performs streamlined one-time initialization tasks when a 
-# Foundry VTT VM boots for the first time. It handles Foundry VTT installation
-# and VM registration with the management system.
+# Foundry VTT VM boots for the first time. It handles VM registration 
+# with the management system.
 #
 # The script follows enterprise best practices with comprehensive error handling,
 # input validation, structured logging, and modular function design. It is 
@@ -34,21 +34,14 @@
 #    - Implements comprehensive input validation and error checking
 #    - Creates execution state tracking files with proper cleanup
 #
-# 2. FOUNDRY VTT INSTALLATION & REPAIR
-#    - Downloads and installs latest Foundry VTT package from private repository
-#    - Implements intelligent broken installation detection and repair
-#    - Comprehensive package cleanup and dependency resolution
-#    - Verifies installation status using dpkg with proper error handling
-#    - Sources from: https://foundry-apt.sfo3.digitaloceanspaces.com/
-#
-# 3. NETWORK VALIDATION & VM REGISTRATION
+# 2. NETWORK VALIDATION & VM REGISTRATION
 #    - Validates and detects IP address of eth0 interface with regex validation
 #    - Calls webhook API to register VM with management system
 #    - Implements robust retry logic with alternating endpoints (vmapi0/vmapi1)
 #    - Supports both dev (port 7070) and prod (port 8080) environments
 #    - Uses authenticated GET requests with comprehensive timeout handling
 #
-# 4. CLEANUP & SERVICE MANAGEMENT
+# 3. CLEANUP & SERVICE MANAGEMENT
 #    - Disables webhook.service with verification to prevent re-execution
 #    - Creates completion markers for state tracking
 #    - Implements proper signal handling and cleanup on exit
@@ -69,9 +62,7 @@
 # 0 - EXIT_SUCCESS           - Script completed successfully
 # 1 - EXIT_GENERAL_ERROR     - General/unspecified error
 # 2 - EXIT_ENV_ERROR         - Environment variable or configuration error
-# 3 - EXIT_NETWORK_ERROR     - Network connectivity or API call error  
-# 4 - EXIT_INSTALL_ERROR     - Foundry VTT installation error
-# 5 - EXIT_VALIDATION_ERROR  - Input validation or system state error
+# 3 - EXIT_NETWORK_ERROR     - Network connectivity or API call error
 #
 #===============================================================================
 # ENVIRONMENT REQUIREMENTS
@@ -80,11 +71,9 @@
 # System Requirements:
 # - /etc/environment file with NODE_ENV variable (dev/prod)
 # - Network interface eth0 must be available and configured
-# - Sufficient disk space for Foundry VTT package download and installation
-# - Root/sudo privileges for package installation and service management
+# - Root/sudo privileges for service management
 #
 # Network Requirements:
-# - Access to foundry-apt.sfo3.digitaloceanspaces.com (Foundry VTT packages)
 # - Access to vmapi0.vm.local and vmapi1.vm.local (webhook registration)
 # - DNS resolution for .vm.local domains
 # - Outbound HTTP/HTTPS connectivity on configured ports
@@ -92,8 +81,6 @@
 # Software Dependencies:
 # - curl (HTTP requests with timeout support)
 # - systemctl (service management)
-# - wget (file downloads)
-# - dpkg (package management)
 # - ip (network interface management)
 # - awk, grep, head, tail (text processing)
 #
@@ -172,19 +159,15 @@ readonly EXIT_SUCCESS=0
 readonly EXIT_GENERAL_ERROR=1
 readonly EXIT_ENV_ERROR=2
 readonly EXIT_NETWORK_ERROR=3
-readonly EXIT_INSTALL_ERROR=4
-readonly EXIT_VALIDATION_ERROR=5
 
 # Configuration constants
 readonly CONFIG_BASE_DIR="/home/fvtt"
-readonly FOUNDRY_USER="fvtt"
 readonly WEBHOOK_ENDPOINTS=("vmapi0.vm.local" "vmapi1.vm.local")
 readonly DEV_PORT=7070
 readonly PROD_PORT=8080
 readonly WEBHOOK_TIMEOUT=2
 readonly WEBHOOK_MAX_TIME=10
 readonly MAX_RETRY_ATTEMPTS=4
-readonly FOUNDRY_PACKAGE_URL="https://foundry-apt.sfo3.digitaloceanspaces.com/foundry_latest_amd64.deb"
 readonly LOG_FILE="/var/log/webhook-init.log"
 
 # State files
@@ -292,64 +275,6 @@ check_execution_state() {
     # Create running marker
     touch "$RUNNING_MARKER"
     log_info "Starting one-time initialization..."
-}
-
-#===============================================================================
-# FOUNDRY VTT INSTALLATION
-#===============================================================================
-
-# Repair broken Foundry installation
-repair_broken_installation() {
-    log_info "Attempting to repair broken Foundry installation..."
-    
-    # More comprehensive cleanup
-    dpkg --configure -a 2>/dev/null || true
-    apt-get -f install -y 2>/dev/null || true
-    dpkg --remove --force-remove-reinstreq foundry 2>/dev/null || true
-    apt-get autoremove -y 2>/dev/null || true
-    
-    # Clear any cached package files
-    apt-get clean 2>/dev/null || true
-    
-    log_info "Broken installation cleanup completed"
-}
-
-# Install Foundry VTT package
-install_foundry_vtt() {
-    log_info "Checking Foundry VTT installation..."
-
-    # Check if foundry is installed and properly configured
-    if dpkg -s foundry >/dev/null 2>&1; then
-        # Check if the installation is complete and not broken
-        local install_status
-        install_status=$(dpkg-query -W -f='${Status}' foundry 2>/dev/null)
-        
-        if [[ "$install_status" == "install ok installed" ]]; then
-            log_info "Foundry VTT is already installed and configured"
-            return 0
-        else
-            log_warn "Foundry VTT installation appears incomplete or broken, reinstalling..."
-            repair_broken_installation
-        fi
-    fi
-
-    log_info "Installing Foundry VTT..."
-    
-    # Download package
-    local temp_package="/tmp/foundry.deb"
-    if ! wget -O "$temp_package" "$FOUNDRY_PACKAGE_URL"; then
-        handle_error "Failed to download Foundry VTT package from $FOUNDRY_PACKAGE_URL" "$EXIT_NETWORK_ERROR"
-    fi
-    
-    # Install package
-    if ! dpkg -i "$temp_package"; then
-        rm -f "$temp_package"
-        handle_error "Foundry VTT installation failed" "$EXIT_INSTALL_ERROR"
-    fi
-    
-    # Cleanup
-    rm -f "$temp_package"
-    log_info "Foundry VTT installation successful"
 }
 
 #===============================================================================
@@ -482,7 +407,6 @@ main() {
     # Core initialization steps
     setup_environment
     check_execution_state
-    install_foundry_vtt
     register_with_webhook
     disable_webhook_service
     mark_completion
