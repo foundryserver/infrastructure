@@ -1,8 +1,35 @@
 # Setup of Base image for Customer VM
 
-This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you update the .env file to reflect this.
+This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you update the .env file to reflect this. This vm will need to be a single partition no swap partition. The swap will be a file on the main partition.
+
+## Boot Strap
+
+You will need to come into the vm via the proxmox shell for the vm. Login as root and then Install these packages. The key one is sudo. You will then need to add the manager user to the sudo group so you can ssh into and continue the build.
+
+```
+apt install sudo -y
+nano /etc/group   #( sudo:x:27:manager)
+ip a # to get dhcp ip to ssh in
+```
+
+Now ssh into vm with user manager and then sudo to root to complete the install.
 
 ## User Accounts
+
+Need to update the manager user that is added during the install process.
+
+```
+# usermod -aG sudo manager  (this is done in the boot strap phase)
+echo "manager  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+mkdir /home/manager/.ssh
+sudo echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY brad@dev1" > /home/manager/.ssh/authorized_keys
+sudo echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25" >> /home/manager/.ssh/authorized_keys
+chown -R manager:manager /home/manager/
+chmod 700 -R /home/manager/.ssh
+chmod 600 /home/manager/.ssh/authorized_keys
+```
+
+Setup fvtt user account.
 
 ```
 useradd -m -s /usr/sbin/nologin fvtt
@@ -17,6 +44,7 @@ apt upgrade -y
 apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
 apt autoremove -y
 ```
+
 ## Edit Grub to speed up boot
 
 ```
@@ -49,24 +77,6 @@ unattended-upgrade --dry-run --debug
 timedatectl set-timezone America/Vancouver
 ```
 
-## Set sshd Config file.
-
-```
-cat <<EOF > /etc/ssh/sshd_config
-Include /etc/ssh/sshd*config.d/\*.conf
-PermitRootLogin no
-PasswordAuthentication no
-ChallengeResponseAuthentication no
-KbdInteractiveAuthentication no
-UsePAM yes
-X11Forwarding no
-PrintMotd no
-AcceptEnv LANG LC_* COLORTERM NO_COLOR
-Subsystem sftp /usr/lib/openssh/sftp-server
-EOF
-systemctl restart ssh
-```
-
 ## Setup Swap
 
 ```
@@ -78,8 +88,9 @@ echo '/swapfile none swap sw 0 0' | tee -a /etc/fstab
 ```
 
 ## Mount Data rbd drive
-It is important to note that we are not creating any partions on this data drive. This makes expanding
-the disk very easy as we are not dealing with partions.  so we can just run resize2fs and life is good.
+
+It is important to note that we are not creating any partitions on this data drive. This makes expanding
+the disk very easy as we are not dealing with partitions. so we can just run resize2fs and life is good.
 We get the UUID from blkid for sdb and then use that to make the fstab entry.
 
 ```
@@ -92,6 +103,7 @@ echo "UUID=$UUID /home/fvtt/data ext4 defaults 0 2" | sudo tee -a /etc/fstab
 # format the drive
 mkfs.ext4 /home/fvtt/data
 ```
+
 ## Create fvtt user and service file.
 
 ```
@@ -206,7 +218,7 @@ cd ~
 wget https://nodejs.org/download/release/latest/node-v25.0.0-linux-x64.tar.gz
 tar -xzf node-v25.0.0-linux-x64.tar.gz
 mv ~/node-v25.0.0-linux-x64/bin/node /usr/bin
-rm -rf node-v25.0.0-linux-x64\*
+rm -rf node-*
 node --version
 
 ```

@@ -64,6 +64,12 @@ echo "alias ll='ls -lah'" >> /etc/bash.bashrc
 
 ```
 
+## Timezone
+
+```
+timedatectl set-timezone America/Vancouver
+```
+
 ## Users
 
 Need to update the manager user that is added during the install process.
@@ -103,4 +109,22 @@ sudo ln -s /opt/node/bin/npm /usr/local/bin/npm
 mkdir -p /home/manager/dev/vm_api
 mkdir -p /home/manager/prod/vm_api
 chown manager:manager -R /home/manager
+```
+
+## Edit Grub to speed up boot
+
+```
+cat <<EOF > /etc/default/grub
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=0
+GRUB_DISTRIBUTOR=`( . /etc/os-release && echo ${NAME} )`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX=""
+GRUB_DISABLE_OS_PROBER=true
+#GRUB_BADRAM="0x01234567,0xfefefefe,0x89abcdef,0xefefefef"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_TIMEOUT_STYLE=hidden
+EOF
+update-grub
+
 ```
