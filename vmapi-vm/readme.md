@@ -1,120 +1,87 @@
-# Setup of Base image for Customer VM
+# Setup vmapi vm
 
-This is the vm instructions for vm-api. We will have two running for redundancy. These vms will have tailscale client installed so that k8s can talk directly to them. We will use proxmox to clone the vms to get them up and running, then use gitlab pipeline to install the application and get it running.
+We will start with a non cloud image debain 13 fresh install. There is an issue that the fresh install doesn't install sudo so it makes it a bit of a challange to bootstrap the install. Seems weird to me.
 
-## Network Setup
-
+## Setup Networking
+Make sure you change the ips for the two different hosts.
 ```
-# This file is generated from information provided by the datasource.  Changes
-# to it will not persist across an instance reboot.  To disable cloud-init's
-# network configuration capabilities, write a file
-# /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:
-# network: {config: disabled}
-network:
-    version: 2
-    ethernets:
-        eth0:
-            addresses:
-            - 192.168.0.6/16
-            gateway4: 192.168.0.1
-            match:
-                macaddress: bc:24:11:52:5f:2b
-            nameservers:
-                addresses:
-                - 192.168.0.1
-                - 1.1.1.1
-                search:
-                - mgmt.local
-            set-name: eth0
-        eth1:
-            addresses:
-            - 10.20.10.6/24
-            match:
-                macaddress: BC:24:11:3A:11:09
-            set-name: eth1
+cat <<EOF > /etc/network/interfaces
+# /etc/network/interfaces
+# Network configuration for Debian 13
 
+# Loopback interface
+auto lo
+iface lo inet loopback
+
+# Primary network interface (ens18)
+auto ens18
+iface ens18 inet static
+    address 192.168.0.6/16
+    gateway 192.168.0.1
+    dns-nameservers 192.168.0.1 1.1.1.1
+    dns-search vm.local
+
+   # Add a second IP address
+    up ip addr add 10.20.20.6/24 dev ens18
+    down ip addr del 10.20.20.6/24 dev ens18
+
+# Secondary network interface (ens19)
+auto ens19
+iface ens19 inet static
+    address 10.20.10.6/24
+
+EOF
+reboot
 ```
+## Boot Strap
 
-## Bash Setup
+You will need to come into the vm via the proxmox shell for the vm.  Login as root and then Install these packages.  The key one is sudo.  You will then need to add the manager user to the sudo group so you can ssh into and continue the build.
 
-```
-echo "alias ll='ls -lah'" >> /etc/bash.bashrc
-```
-
-## Install Necessary Packages
-
+## Install packages
 ```
 apt update
-apt install htop curl nano qemu-guest-agent -y
+apt upgrade -y
+apt install sudo htop ntop zip unzip curl wget qemu-guest-agent unattended-upgrades rsync -y
 apt autoremove -y
+```
+## Setup ENV'
+```
+echo "alias ll='ls -lah'" >> /etc/bash.bashrc
 
 ```
+## Users
 
+Need to update the manager user that is added during the install process. 
+```
+usermod -aG sudo manager
+echo "manager  ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+mkdir /home/manager/.ssh
+sudo echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY brad@dev1" > /home/manager/.ssh/authorized_keys
+sudo echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25" >> /home/manager/.ssh/authorized_keys
+chown -R manager:manager /home/manager/
+chmod 700 -R /home/manager/.ssh
+chmod 600 /home/manager/.ssh/authorized_keys
+```
 ## Automated Updates
 
-You will need to make changes to the options file for this work as desired.
-The netselect will help find the fastest mirror to be used.
-
 ```
-sudo apt install netselect-apt -y
-sudo netselect-apt
-
-
-sudo apt install unattended-upgrades apt-listchanges -y
-sudo dpkg-reconfigure -plow unattended-upgrades
-
- nano /etc/apt/apt.conf.d/50unattended-upgrades
+dpkg-reconfigure --priority=low unattended-upgrades
+nano /etc/apt/apt.conf.d/50unattended-upgrades
+unattended-upgrade --dry-run --debug
 ```
 
-## Setup Podman api
-
-Podman runs a a daemon-less runtime.
+## Install Nodejs binary
 
 ```
-sudo apt install podman -y
+NODE_VERSION=v25.0.0  # example
+curl -fsSL https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-x64.tar.xz | tar -xJ
+sudo mv node-$NODE_VERSION-linux-x64 /opt/node
+sudo ln -s /opt/node/bin/node /usr/local/bin/node
+sudo ln -s /opt/node/bin/npm /usr/local/bin/npm
 ```
 
-## Timezone
-
+## Setup Application Dir
 ```
-timedatectl set-timezone America/Vancouver
+mkdir -p /home/manager/dev/vm_api
+mkdir -p /home/manager/prod/vm_api
 ```
-
-## Set sshd Config file.
-
-```
-cat <<EOF > /etc/ssh/sshd_config
-Include /etc/ssh/sshd*config.d/\*.conf
-PermitRootLogin no
-PasswordAuthentication no
-ChallengeResponseAuthentication no
-UsePAM yes
-X11Forwarding no
-PrintMotd no
-AcceptEnv LANG LC*\*
-Subsystem sftp /usr/lib/openssh/sftp-server
-EOF
-systemctl restart ssh
-```
-
-## Install and Setup Tailscale client
-
-This will me a dedicated client that k8s can talk to directly. These will not be going through any subnet routing.
-
-```
-sudo curl -fsSL https://tailscale.com/install.sh | sh
-```
-
-## Configure Routes and start
-
-```
-tailscale up --auth-key=<redacted>
-```
-
-## Foundry Source
-
-You will need a directory at /home/admin/fvtt and each sub dir will be the version # of the fvtt application. i.e. 6.78.
-
-## Ansible SSH
-
-In order for this to work we need the ansible private key on this node so we can scp the files to the players vm.

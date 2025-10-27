@@ -17,6 +17,23 @@ apt upgrade -y
 apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
 apt autoremove -y
 ```
+## Edit Grub to speed up boot
+
+```
+cat <<EOF > /etc/default/grub
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=0
+GRUB_DISTRIBUTOR=`( . /etc/os-release && echo ${NAME} )`
+GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX=""
+GRUB_DISABLE_OS_PROBER=true
+#GRUB_BADRAM="0x01234567,0xfefefefe,0x89abcdef,0xefefefef"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_TIMEOUT_STYLE=hidden
+EOF
+update-grub
+
+```
 
 ## Automated Updates
 
@@ -40,10 +57,11 @@ Include /etc/ssh/sshd*config.d/\*.conf
 PermitRootLogin no
 PasswordAuthentication no
 ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
 UsePAM yes
 X11Forwarding no
 PrintMotd no
-AcceptEnv LANG LC*\*
+AcceptEnv LANG LC_* COLORTERM NO_COLOR
 Subsystem sftp /usr/lib/openssh/sftp-server
 EOF
 systemctl restart ssh
@@ -221,7 +239,6 @@ sudo systemctl enable resize-sdb.service
 ## Debian Reset VM for templating
 
 ```
-sudo rm -f /etc/ssh/ssh_host*
 sudo truncate -s 0 /etc/machine-id
 sudo find /var/log -type f -exec truncate -s 0 {} \;
 sudo rm -rf /tmp/_

@@ -246,7 +246,7 @@ get_eth0_ip() {
         handle_error "Failed to detect valid IP address for eth0" "$EXIT_NETWORK_ERROR"
     fi
     
-    log_info "Detected eth0 IP address: $ip"
+    log_debug "Detected eth0 IP address: $ip"
     echo "$ip"
 }
 
@@ -400,21 +400,33 @@ register_with_webhook() {
 
         log_debug "Request URL: $url?ip=$ip_address"
 
-        # Make webhook call
+        # Make webhook call with better error handling
         local response
+        local curl_exit_code
         response=$(curl -s -w "%{http_code}" -X GET "${url}?ip=${ip_address}" \
             -H "Authorization: Bearer $WEBHOOK_TOKEN" \
             --connect-timeout "$WEBHOOK_TIMEOUT" \
             --max-time "$WEBHOOK_MAX_TIME" \
-            2>/dev/null)
+            2>&1)
+        curl_exit_code=$?
 
-        # Extract status code and response body
-        status_code=$(echo "$response" | tail -c 4)
-        local response_body
-        response_body=$(echo "$response" | head -c -4)
+        if [[ $curl_exit_code -ne 0 ]]; then
+            log_warn "Curl failed with exit code $curl_exit_code: $response"
+            status_code=0
+        else
+            # Extract status code and response body
+            if [[ ${#response} -ge 3 ]]; then
+                status_code=$(echo "$response" | tail -c 4)
+                local response_body
+                response_body=$(echo "$response" | head -c -4)
+                log_debug "Response body: $response_body"
+            else
+                log_warn "Invalid response received: $response"
+                status_code=0
+            fi
+        fi
         
         log_info "Response status code: $status_code"
-        log_debug "Response body: $response_body"
 
         # Check for success
         if [[ $status_code -eq 200 ]]; then
