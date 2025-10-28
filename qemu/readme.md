@@ -41,7 +41,7 @@ useradd -m -s /usr/sbin/nologin fvtt
 ```
 apt update
 apt upgrade -y
-apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip iptables -y
 apt autoremove -y
 ```
 
@@ -185,6 +185,7 @@ chown fvtt:fvtt -R /home/fvtt
 ```
 crontab -e
 0 2 1 * * /usr/bin/find /var/log -name "*.gz" -type f -delete
+*/5 * * * * /home/fvtt/monitor.sh >/dev/null 2>&1
 ```
 
 ## Setup webhook
