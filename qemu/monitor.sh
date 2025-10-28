@@ -1,11 +1,84 @@
 #!/bin/bash
-# Version 2.0.0
+# Version 2.0.1
 # Description: Combined monitoring script for VM resource usage
 # - Monitors bandwidth usage on port 30000 (levels 0 and 1)
 # - Monitors uptime limits for Level 0 customers (15-hour monthly limit)
 # - Checks bandwidth threshold for Level 0 & 1 customers (3000 bytes over 3 hours)
 
 set -euo pipefail  # Exit on error, undefined variables, and pipe failures
+
+# ============================================================================
+# DEPENDENCY CHECKS
+# ============================================================================
+
+# Function to check for required system commands and utilities
+check_dependencies() {
+    local missing_deps=()
+    local required_commands=(
+        "iptables"
+        "date" 
+        "curl"
+        "openssl"
+        "journalctl"
+        "wc"
+        "tail"
+        "head"
+        "awk"
+        "grep"
+        "hostname"
+        "poweroff"
+    )
+    
+    echo "Checking system dependencies..."
+    
+    for cmd in "${required_commands[@]}"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing_deps+=("$cmd")
+            echo "✗ Missing: $cmd"
+        else
+            echo "✓ Found: $cmd"
+        fi
+    done
+    
+    # Check for systemd (journalctl functionality)
+    if ! systemctl --version >/dev/null 2>&1; then
+        missing_deps+=("systemd")
+        echo "✗ Missing: systemd (required for journalctl functionality)"
+    else
+        echo "✓ Found: systemd"
+    fi
+    
+    # Check for root privileges
+    if [ "$EUID" -ne 0 ]; then
+        missing_deps+=("root privileges")
+        echo "✗ Missing: root privileges (script must be run as root)"
+    else
+        echo "✓ Found: root privileges"
+    fi
+    
+    # Check write access to /var/log/
+    if [ ! -w "/var/log" ]; then
+        missing_deps+=("write access to /var/log")
+        echo "✗ Missing: write access to /var/log directory"
+    else
+        echo "✓ Found: write access to /var/log"
+    fi
+    
+    # Report results
+    if [ ${#missing_deps[@]} -eq 0 ]; then
+        echo "✓ All dependencies satisfied"
+        return 0
+    else
+        echo ""
+        echo "ERROR: Missing required dependencies:"
+        for dep in "${missing_deps[@]}"; do
+            echo "  - $dep"
+        done
+        echo ""
+        echo "Please install missing dependencies and ensure script is run with proper privileges."
+        exit 1
+    fi
+}
 
 # ============================================================================
 # CONFIGURATION
@@ -353,6 +426,9 @@ echo "========================================"
 echo "Monitor Script - $(get_timestamp)"
 echo "LEVEL: $LEVEL"
 echo "========================================"
+
+# Check all dependencies before proceeding
+check_dependencies
 
 # Initialize bandwidth monitoring (always runs for LEVEL 0 and 1)
 init_bandwidth_files
