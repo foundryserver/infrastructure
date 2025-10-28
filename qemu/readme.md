@@ -1,5 +1,8 @@
 # Setup of Base image for Customer VM
 
+VERSION: 1.0.0
+LAST EDIT: Oct 28, 2025
+
 This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you to call the template db13-fvtt-tpl-{dev/prod} This template needs to be on all nodes. If you change the name you need to update the env files for the new template name. You will have to do the replication as proxmox wont do this. This vm will need to be a single partition no swap partition. The swap will be a file on the main partition.
 
 ## Boot Strap
@@ -12,7 +15,7 @@ nano /etc/group   #( sudo:x:27:manager)
 ip a # to get dhcp ip to ssh in
 ```
 
-Now ssh into vm with user manager and then sudo to root to complete the install.
+Now ssh into vm with user manager and then sudotto root to complete the install.
 
 ## User Accounts
 
@@ -209,6 +212,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+User=root
+Group=root
 Type=oneshot
 ExecStart=/root/webhook.sh
 
@@ -263,6 +268,7 @@ sudo systemctl enable resize-sdb.service
 
 ```
 sudo truncate -s 0 /etc/machine-id
+sudo rm /var/lib/dbus/machine-id
 sudo find /var/log -type f -exec truncate -s 0 {} \;
 sudo rm -rf /tmp/_
 sudo rm -rf /var/tmp/_
