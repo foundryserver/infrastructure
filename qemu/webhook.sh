@@ -5,7 +5,7 @@
 #===============================================================================
 #
 # Script Name:    webhook.sh
-# Version:        4.0.0
+# Version:        4.0.2
 # Purpose:        Enterprise-grade first-boot initialization script for Foundry VTT VMs
 # Author:         Brad Knorr
 # Created:        October 1, 2025
@@ -34,14 +34,20 @@
 #    - Implements comprehensive input validation and error checking
 #    - Creates execution state tracking files with proper cleanup
 #
-# 2. NETWORK VALIDATION & VM REGISTRATION
+# 2. SSH HOST KEY SECURITY
+#    - Removes existing SSH host keys for security
+#    - Generates new host keys using ssh-keygen -A (RSA, ECDSA, ED25519)
+#    - Uses default key lengths and proper permissions automatically
+#    - Restarts SSH service to apply new host keys
+#
+# 3. NETWORK VALIDATION & VM REGISTRATION
 #    - Validates and detects IP address of eth0 interface with regex validation
 #    - Calls webhook API to register VM with management system
 #    - Implements robust retry logic with alternating endpoints (vmapi0/vmapi1)
 #    - Supports both dev (port 7070) and prod (port 8080) environments
 #    - Uses authenticated GET requests with comprehensive timeout handling
 #
-# 3. CLEANUP & SERVICE MANAGEMENT
+# 4. CLEANUP & SERVICE MANAGEMENT
 #    - Disables webhook.service with verification to prevent re-execution
 #    - Creates completion markers for state tracking
 #    - Implements proper signal handling and cleanup on exit
@@ -82,6 +88,7 @@
 # - curl (HTTP requests with timeout support)
 # - systemctl (service management)
 # - ip (network interface management)
+# - ssh-keygen (SSH host key generation)
 # - awk, grep, head, tail (text processing)
 #
 #===============================================================================
@@ -161,7 +168,7 @@ readonly EXIT_ENV_ERROR=2
 readonly EXIT_NETWORK_ERROR=3
 
 # Configuration constants
-readonly CONFIG_BASE_DIR="/home/fvtt"
+readonly CONFIG_BASE_DIR="/root"
 readonly WEBHOOK_ENDPOINTS=("vmapi0.vm.local" "vmapi1.vm.local")
 readonly DEV_PORT=7070
 readonly PROD_PORT=8080
@@ -370,6 +377,40 @@ register_with_webhook() {
 }
 
 #===============================================================================
+# SSH HOST KEY MANAGEMENT
+#===============================================================================
+
+# Rebuild SSH host keys for enhanced security
+rebuild_ssh_host_keys() {
+    log_info "Rebuilding SSH host keys..."
+    
+    # Remove existing host keys to force regeneration
+    log_info "Removing existing SSH host keys..."
+    rm -f /etc/ssh/ssh_host_*
+    
+    # Generate all default SSH host keys using ssh-keygen -A
+    log_info "Generating new SSH host keys..."
+    if ssh-keygen -A; then
+        log_info "SSH host keys generated successfully"
+    else
+        log_warn "Failed to generate SSH host keys"
+        return 1
+    fi
+    
+    log_info "SSH host keys rebuilt successfully"
+    
+    # Restart SSH service to use new keys
+    log_info "Restarting SSH service to apply new host keys..."
+    if systemctl restart ssh; then
+        log_info "SSH service restarted successfully"
+    elif systemctl restart sshd; then
+        log_info "SSH service (sshd) restarted successfully"
+    else
+        log_warn "Failed to restart SSH service - manual restart may be required"
+    fi
+}
+
+#===============================================================================
 # SERVICE MANAGEMENT
 #===============================================================================
 
@@ -407,6 +448,7 @@ main() {
     # Core initialization steps
     setup_environment
     check_execution_state
+    rebuild_ssh_host_keys
     register_with_webhook
     disable_webhook_service
     mark_completion

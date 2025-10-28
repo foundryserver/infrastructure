@@ -1,11 +1,12 @@
 #!/bin/bash
-# Version 2.0.1
+# Version 2.0.3
 # Description: Combined monitoring script for VM resource usage
 # - Monitors bandwidth usage on port 30000 (levels 0 and 1)
 # - Monitors uptime limits for Level 0 customers (15-hour monthly limit)
 # - Checks bandwidth threshold for Level 0 & 1 customers (3000 bytes over 3 hours)
 
 set -euo pipefail  # Exit on error, undefined variables, and pipe failures
+source /etc/environment # Load environment variables
 
 # ============================================================================
 # DEPENDENCY CHECKS
@@ -297,12 +298,11 @@ send_webhook() {
     local url=$1
     local server_name=$2
     local username=$3
-    local hash=$4
     
     echo "Sending webhook to $server_name..."
     
     RESPONSE=$(curl -s -w "%{http_code}" -X GET "${url}?username=${username}" \
-        -H "Authorization: Bearer $hash" \
+        -H "Authorization: Bearer webhookUptime" \
         --connect-timeout 5 \
         --max-time 10 2>/dev/null)
     
@@ -325,7 +325,6 @@ check_uptime_limit() {
     
     # Create authentication token for webhook
     USERNAME=$(hostname)
-    HASH=$(echo -n "$USERNAME" | openssl dgst -sha256 | awk '{print $2}')
     
     # Get current month and year
     current_month=$(date +%Y-%m)
@@ -406,8 +405,8 @@ check_uptime_limit() {
         URL1="http://192.168.0.7:$PORT_API/vm/webhook-uptime"
         
         # Send webhooks to both servers for redundancy
-        send_webhook "$URL0" "vmapi0" "$USERNAME" "$HASH"
-        send_webhook "$URL1" "vmapi1" "$USERNAME" "$HASH"
+        send_webhook "$URL0" "vmapi0" "$USERNAME"
+        send_webhook "$URL1" "vmapi1" "$USERNAME"
         
         # Log the uptime limit exceeded event
         echo "$(get_timestamp) - Uptime limit exceeded: ${total_uptime_hours}h ${total_uptime_minutes}m" >> "$UPTIME_LOG"

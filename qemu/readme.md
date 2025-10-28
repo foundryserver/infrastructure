@@ -1,6 +1,6 @@
 # Setup of Base image for Customer VM
 
-This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you update the .env file to reflect this. This vm will need to be a single partition no swap partition. The swap will be a file on the main partition.
+This is the recipe to create the clone able vm for customer provisioning. You will need to create a template on each proxmox host. Whatever the template vmids are on each node make sure you to call the template db13-fvtt-tpl-{dev/prod} This template needs to be on all nodes. If you change the name you need to update the env files for the new template name. You will have to do the replication as proxmox wont do this. This vm will need to be a single partition no swap partition. The swap will be a file on the main partition.
 
 ## Boot Strap
 
@@ -36,12 +36,23 @@ useradd -m -s /usr/sbin/nologin fvtt
 
 ```
 
+## Add ufw rule
+
+port 22 is ssh
+port 3030 is webdav
+port 30000 is fvtt
+
+```
+sudo ufw allow 22,3030,30000/tcp
+ufw enable
+```
+
 ## Install Necessary Packages
 
 ```
 apt update
 apt upgrade -y
-apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip iptables -y
+apt install htop curl nano qemu-guest-agent cron nfs-common jq unattended-upgrades s3cmd zip iptables ufw -y
 apt autoremove -y
 ```
 
@@ -167,16 +178,15 @@ systemctl enable --now webdav.service
 
 ## Create Webhook/bandwidth script file.
 
-1. webhook.sh - this file is located at /home/fvtt/webhook.sh
-2. monitor.sh - this file is located at /home/fvtt/monitor.sh
+1. webhook.sh - this file is located at /root/webhook.sh
+2. monitor.sh - this file is located at /root/monitor.sh
 
 Now set the perms and cron
 
 ```
 
-chmod +x /home/fvtt/webhook.sh
-chmod +x /home/fvtt/monitor.sh
-chown fvtt:fvtt -R /home/fvtt
+chmod +x /root/*.sh
+chown root:root /root/*.sh
 
 ```
 
@@ -185,7 +195,7 @@ chown fvtt:fvtt -R /home/fvtt
 ```
 crontab -e
 0 2 1 * * /usr/bin/find /var/log -name "*.gz" -type f -delete
-*/5 * * * * /home/fvtt/monitor.sh >/dev/null 2>&1
+*/5 * * * * /root/monitor.sh >/dev/null 2>&1
 ```
 
 ## Setup webhook
@@ -200,7 +210,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/fvtt/webhook.sh
+ExecStart=/root/webhook.sh
 
 [Install]
 WantedBy=multi-user.target
@@ -258,8 +268,8 @@ sudo rm -rf /tmp/_
 sudo rm -rf /var/tmp/_
 sudo rm -f /var/lib/dhcp/*
 sudo rm ~/.bash_history
-sudo rm /home/fvtt/webhook.success
-sudo rm /home/fvtt/webhook.failed
-sudo rm /home/fvtt/webhook.running
+sudo rm /root/webhook.success
+sudo rm /root/webhook.failed
+sudo rm /root/webhook.running
 sudo shutdown -h now
 ```
