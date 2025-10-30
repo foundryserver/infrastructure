@@ -1,0 +1,248 @@
+#cloud-config
+# Proxmox 8.4 Debian 13 Cloud qcow2 Template Setup
+# VERSION: 1.0.1
+# LAST EDIT: Oct 30, 2025
+# Foundry VTT VM Template Configuration
+
+# Basic VM configuration
+hostname: debian13-fvtt-template-dev
+timezone: America/Vancouver
+
+# System information
+system_info:
+  default_user:
+    name: manager
+  package_mirrors:
+    - arches: [default]
+  locale: en_US.UTF-8
+
+# User configuration
+users:
+  - name: manager
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    passwd: '$6$jNm1O98kb.jm1gtz$SB5Uoc01xFzbnZTIb9D.MSn.Na/Ve1tMv3LRloYeYoL2D30igocaay9uuV6y9P9X3c0fOna2blBxoOxkwpfRB/'
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY brad@dev1
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25
+  - name: fvtt
+    shell: /usr/sbin/nologin
+    system: true
+
+# Package management
+package_update: true
+package_upgrade: true
+packages:
+  - sudo
+  - htop
+  - curl
+  - nano
+  - qemu-guest-agent
+  - cron
+  - nfs-common
+  - unattended-upgrades
+  - s3cmd
+  - zip
+  - iptables
+  - ufw
+  - wget
+  - tar
+  - network-manager
+
+# File system setup
+# Use whole disk without partitions
+fs_setup:
+  - label: fvtt-data
+    filesystem: ext4
+    device: /dev/sdb
+    overwrite: true
+
+mounts:
+  - ["/dev/sdb", "/home/fvtt/data", "ext4", "defaults", "0", "2"]
+
+# Write files to system
+write_files:
+
+  # WebDAV configuration
+  - path: /home/fvtt/webdav/config.yaml
+    content: |
+      address: 0.0.0.0
+      port: 3030
+      prefix: /
+      behindProxy: true
+      directory: /home/fvtt/data/foundrydata
+      permissions: CRUD
+      users:
+      - username: "place#username"
+        password: "place#password"
+    permissions: '0644'
+    owner: fvtt:fvtt
+
+  # WebDAV systemd service
+  - path: /etc/systemd/system/webdav.service
+    content: |
+      [Unit]
+      Description=WebDAV Server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=fvtt
+      Group=fvtt
+      ExecStart=/usr/bin/webdav --config /home/fvtt/webdav/config.yaml
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    permissions: '0644'
+
+  # Data drive resize service
+  - path: /etc/systemd/system/resize-sdb.service
+    content: |
+      [Unit]
+      Description=Resize /dev/sdb and filesystem to fill the disk
+      DefaultDependencies=no
+      Before=local-fs-pre.target
+      Wants=local-fs-pre.target
+
+      [Service]
+      User=root
+      Group=root
+      Type=oneshot
+      ExecStart=/usr/sbin/resize2fs /dev/sdb
+      RemainAfterExit=yes
+
+      [Install]
+      WantedBy=local-fs.target
+    permissions: '0644'
+
+  # System environment variables
+  - path: /etc/environment
+    content: |
+      # System wide env values
+
+      ############ Foundry Server #########################
+
+      LEVEL=planlevel
+      NODE_ENV=dev
+
+      ####################################################
+    permissions: '0644'
+    append: true
+
+  # Global shell aliases
+  - path: /etc/profile.d/custom-aliases.sh
+    content: |
+      # Custom system-wide aliases
+      alias ll='ls -la'
+    permissions: '0644'  # Unattended upgrades configuration
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+              "origin=Debian,codename=${distro_codename},label=Debian";
+              "origin=Debian,codename=${distro_codename},label=Debian-Security";
+              "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+      Unattended-Upgrade::Package-Blacklist {};
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "03:00";
+    permissions: '0644'
+
+# Commands to run during cloud-init
+runcmd:
+  # Create directory structure for fvtt (includes home directory creation)
+  - mkdir -p /home/fvtt/data/foundrydata/{Config,Data,Logs}
+  - mkdir -p /home/fvtt/data/foundrycore
+  - mkdir -p /home/fvtt/webdav
+  - chown -R fvtt:fvtt /home/fvtt/
+
+  # Configure UFW firewall
+  - ufw --force enable
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 3030/tcp
+  - ufw allow 30000/tcp
+
+  # Setup cron jobs
+  - echo "0 2 1 * * root /usr/bin/find /var/log -name '*.gz' -type f -delete" >> /etc/crontab
+  - echo "*/5 * * * * root /root/monitor.sh >/dev/null 2>&1" >> /etc/crontab
+
+  # Download and install WebDAV server
+  - cd /tmp
+  - wget -q https://github.com/hacdias/webdav/releases/download/v5.8.0/linux-amd64-webdav.tar.gz
+  - tar -xzf linux-amd64-webdav.tar.gz
+  - mv webdav /usr/bin/
+  - rm -f linux-amd64-webdav.tar.gz
+
+  # Download and install Node.js
+  - cd /tmp
+  - wget -q https://nodejs.org/download/release/latest/node-v25.0.0-linux-x64.tar.gz
+  - tar -xzf node-v25.0.0-linux-x64.tar.gz
+  - mv node-v25.0.0-linux-x64/bin/node /usr/bin/
+  - rm -rf node-*
+
+  # Configure unattended upgrades
+  - dpkg-reconfigure -fnoninteractive unattended-upgrades
+
+  # Register VM with vmapi service
+  - |
+    # Wait for network route to be available with retry logic
+    MAX_RETRIES=30
+    RETRY_COUNT=0
+    INTERFACE=""
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K\S+' | head -n1)
+      if [ -n "$INTERFACE" ]; then
+        echo "Network route found via interface: $INTERFACE" >> /root/vmapi_registration.log
+        break
+      fi
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      echo "Waiting for network route... attempt $RETRY_COUNT/$MAX_RETRIES" >> /root/vmapi_registration.log
+      sleep 2
+    done
+    
+    if [ -z "$INTERFACE" ]; then
+      echo "Failed to find network route after $MAX_RETRIES attempts" >> /root/vmapi_registration.log
+      exit 0
+    fi
+    
+    VM_IP=$(ip addr show "$INTERFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+    if [ -n "$VM_IP" ]; then
+      curl -s -G "http://vmapi0.vm.lan:7070" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
+    else
+      echo "Failed to get IP address from interface $INTERFACE" >> /root/vmapi_registration.log
+    fi
+
+  # Enable and start services
+  - systemctl daemon-reload
+  
+  # Other services
+  - systemctl enable --now qemu-guest-agent
+  - systemctl enable --now webdav.service
+  - systemctl enable resize-sdb.service
+
+  # Clean up package cache
+  - apt autoremove -y
+  - apt autoclean
+
+  # Check if reboot is required after package upgrades
+  - |
+    if [ -f /var/run/reboot-required ]; then
+      echo "Reboot required after package upgrades" >> /root/setup.log
+      shutdown -r +1 "Rebooting after cloud-init setup"
+    fi
+
+# Final message
+final_message: |
+  Debian 13 Foundry VTT template setup completed!
+  
+  Template is ready for use. Remember to:
+  1. Update WebDAV credentials in /home/fvtt/webdav/config.yaml
+  2. Customize webhook.sh and monitor.sh scripts as needed
+  3. Test all services before converting to template
+ 

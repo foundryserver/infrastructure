@@ -80,8 +80,8 @@
 # - Root/sudo privileges for service management
 #
 # Network Requirements:
-# - Access to vmapi0.vm.local and vmapi1.vm.local (webhook registration)
-# - DNS resolution for .vm.local domains
+# - Access to vmapi0.vm.lan and vmapi1.vm.lan (webhook registration)
+# - DNS resolution for .vm.lan domains
 # - Outbound HTTP/HTTPS connectivity on configured ports
 #
 # Software Dependencies:
@@ -107,8 +107,8 @@
 #===============================================================================
 #
 # Webhook Endpoints:
-# - Development: http://vmapi[0|1].vm.local:7070/vm/webhook-init
-# - Production:  http://vmapi[0|1].vm.local:8080/vm/webhook-init
+# - Development: http://vmapi[0|1].vm.lan:7070/vm/webhook-init
+# - Production:  http://vmapi[0|1].vm.lan:8080/vm/webhook-init
 #
 # Authentication: Bearer token "webhookInit" (fixed authentication token)
 # Request Parameters: ip={eth0_ip} (validated IPv4 address)
@@ -169,7 +169,7 @@ readonly EXIT_NETWORK_ERROR=3
 
 # Configuration constants
 readonly CONFIG_BASE_DIR="/root"
-readonly WEBHOOK_ENDPOINTS=("vmapi0.vm.local" "vmapi1.vm.local")
+readonly WEBHOOK_ENDPOINTS=("vmapi0.vm.lan" "vmapi1.vm.lan")
 readonly DEV_PORT=7070
 readonly PROD_PORT=8080
 readonly WEBHOOK_TIMEOUT=2

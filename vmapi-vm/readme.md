@@ -33,7 +33,7 @@ iface ens18 inet static
     address 192.168.0.7/16
     gateway 192.168.0.1
     dns-nameservers 192.168.0.1 1.1.1.1
-    dns-search vm.local
+    dns-search vm.lan
 
    # Add a second IP address
     up ip addr add 10.20.20.7/24 dev ens18

@@ -112,10 +112,10 @@ backend errorAPI_backend
 
 backend proxmoxAPI_backend
     mode tcp
-    server pve0 10.20.10.20:8006 check check-ssl verify none sni str(pve0.mgmt.local)
-    server pve1 10.20.10.21:8006 check check-ssl verify none sni str(pve1.mgmt.local)
-    server pve2 10.20.10.22:8006 check check-ssl verify none sni str(pve2.mgmt.local)
-    server pve3 10.20.10.28:8006 check check-ssl verify none sni str(pve3.mgmt.local)
+    server pve0 10.20.10.20:8006 check check-ssl verify none sni str(pve0.mgmt.lan)
+    server pve1 10.20.10.21:8006 check check-ssl verify none sni str(pve1.mgmt.lan)
+    server pve2 10.20.10.22:8006 check check-ssl verify none sni str(pve2.mgmt.lan)
+    server pve3 10.20.10.28:8006 check check-ssl verify none sni str(pve3.mgmt.lan)
 
 
 listen stats
