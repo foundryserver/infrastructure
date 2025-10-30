@@ -213,7 +213,7 @@ runcmd:
     
     VM_IP=$(ip addr show "$INTERFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
     if [ -n "$VM_IP" ]; then
-      curl -s -G "http://vmapi0.vm.lan:7070" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
+      curl -s -G "http://nodeport1.vm.lan:30002" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
     else
       echo "Failed to get IP address from interface $INTERFACE" >> /root/vmapi_registration.log
     fi

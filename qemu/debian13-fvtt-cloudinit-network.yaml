@@ -7,11 +7,13 @@
 version: 1
 config:
     - type: physical
+      name: enp0s18
       subnets:
       - type: dhcp4
     - type: nameserver
       address:
       - '192.168.0.1'
       - '1.1.1.1'
+      - '8.8.8.8'
       search:
       - 'vm.lan'
