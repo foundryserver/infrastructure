@@ -1,0 +1,19 @@
+# Configure UFW firewall
+  - ufw --force enable
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow in from 10.0.0.0/8 to any port 22 proto tcp
+  - ufw allow in from 172.16.0.0/12 to any port 22 proto tcp
+  - ufw allow in from 192.168.0.0/16 to any port 22 proto tcp
+  - ufw allow in 3030/tcp
+  - ufw allow in 30000/tcp
+  - ufw allow in on any to any proto icmp
+  - ufw allow out on any to any proto icmp
+  # Block all UDP except DNS and mDNS
+  - ufw deny out proto udp
+  - ufw allow out 53/udp
+  - ufw allow out 5353/udp
+  - ufw allow out 123/udp
+  - ufw deny in proto udp
+  - ufw allow in 53/udp
+  - ufw allow in 5353/udp

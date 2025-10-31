@@ -1,6 +1,6 @@
 #cloud-config
 # Proxmox 8.4 Debian 13 Generic Cloud qcow2 Template Setup
-# VERSION: 1.0.3
+# VERSION: 1.0.10
 # LAST EDIT: Oct 31, 2025
 # Foundry VTT VM Configuration
 
@@ -32,20 +32,12 @@ users:
 package_update: true
 package_upgrade: true
 packages:
-  - sudo
-  - htop
-  - curl
-  - nano
   - qemu-guest-agent
-  - cron
+  - htop
   - nfs-common
-  - unattended-upgrades
   - s3cmd
   - zip
-  - iptables
   - ufw
-  - wget
-  - tar
 
 # File system setup
 # Use whole disk without partitions
@@ -215,15 +207,7 @@ runcmd:
   - mkdir -p /home/fvtt/webdav
   - chown -R fvtt:fvtt /home/fvtt/
 
-  # Configure UFW firewall
-  - ufw --force enable
-  - ufw default deny incoming
-  - ufw default allow outgoing
-  - ufw allow 22/tcp
-  - ufw allow 3030/tcp
-  - ufw allow 30000/tcp
-  - ufw allow in proto icmp
-  - ufw allow out proto icmp
+  # Ufw Configuration
 
   # Download and install WebDAV server
   - cd /tmp
@@ -244,31 +228,36 @@ runcmd:
 
   # Register VM with vmapi service
   - |
-    # Wait for network route to be available with retry logic
+    systemctl start qemu-guest-agent
+    # Wait for qemu-guest-agent to be ready with retry logic
     MAX_RETRIES=30
     RETRY_COUNT=0
-    INTERFACE=""
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-      INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K\S+' | head -n1)
-      if [ -n "$INTERFACE" ]; then
-        echo "Network route found via interface: $INTERFACE" >> /root/vmapi_registration.log
+      if systemctl is-active --quiet qemu-guest-agent; then
+        echo "qemu-guest-agent is active after $RETRY_COUNT attempts" >> /root/vmapi_registration.log
         break
       fi
       RETRY_COUNT=$((RETRY_COUNT + 1))
-      echo "Waiting for network route... attempt $RETRY_COUNT/$MAX_RETRIES" >> /root/vmapi_registration.log
+      echo "Waiting for qemu-guest-agent... attempt $RETRY_COUNT/$MAX_RETRIES" >> /root/vmapi_registration.log
       sleep 2
     done
     
-    if [ -z "$INTERFACE" ]; then
-      echo "Failed to find network route after $MAX_RETRIES attempts" >> /root/vmapi_registration.log
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+      echo "Failed to confirm qemu-guest-agent is ready after $MAX_RETRIES attempts" >> /root/vmapi_registration.log
       exit 0
     fi
     
-    VM_IP=$(ip addr show "$INTERFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
-    if [ -n "$VM_IP" ]; then
-      curl -s -G "http://nodeport2.vm.lan:31002/vm/webhook-init" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
+    # Get IP from primary network interface
+    INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K\S+' | head -n1)
+    if [ -n "$INTERFACE" ]; then
+      VM_IP=$(ip addr show "$INTERFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+      if [ -n "$VM_IP" ]; then
+        curl -s -G "http://nodeport2.vm.lan:31002/vm/webhook-init" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
+      else
+        echo "Failed to get IP address from interface $INTERFACE" >> /root/vmapi_registration.log
+      fi
     else
-      echo "Failed to get IP address from interface $INTERFACE" >> /root/vmapi_registration.log
+      echo "Failed to find network interface" >> /root/vmapi_registration.log
     fi
 
   # Enable and start services
@@ -278,8 +267,6 @@ runcmd:
   - systemctl enable systemd-networkd-wait-online.service
   
   # Other services
-  - systemctl enable --now cron
-  - systemctl enable --now qemu-guest-agent
   - systemctl enable --now webdav.service
   - systemctl enable resize-sdb.service
 
