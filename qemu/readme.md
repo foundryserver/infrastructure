@@ -230,10 +230,10 @@ systemctl enable webhook.service
 
 ```
 
-cd ~
-wget https://nodejs.org/download/release/latest/node-v25.0.0-linux-x64.tar.gz
+cd /tmp
+wget https://nodejs.org/download/release/v25.0.0/node-v25.0.0-linux-x64.tar.gz
 tar -xzf node-v25.0.0-linux-x64.tar.gz
-mv ~/node-v25.0.0-linux-x64/bin/node /usr/bin
+mv node-v25.0.0-linux-x64/bin/node /usr/bin
 rm -rf node-*
 node --version
 
