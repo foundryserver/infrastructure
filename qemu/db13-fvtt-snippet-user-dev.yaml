@@ -1,236 +1,378 @@
 #cloud-config
+# ==============================================================================
 # Proxmox 8.4 Debian 13 Generic Cloud qcow2 Template Setup
-# VERSION: 1.0.10
+# ==============================================================================
+# PURPOSE: Cloud-init configuration for creating Foundry VTT virtual machines
+# VERSION: 1.0.12
 # LAST EDIT: Oct 31, 2025
-# Foundry VTT VM Configuration
+# 
+# This cloud-init configuration sets up a complete Foundry VTT development
+# environment on Debian 13 including:
+# - User accounts with SSH access
+# - WebDAV server for file access
+# - Firewall configuration
+# - Automatic security updates
+# - Foundry VTT directory structure
+# - Node.js runtime for Foundry VTT
+# ==============================================================================
 
-# Basic VM configuration
+# ==============================================================================
+# BASIC VM CONFIGURATION
+# ==============================================================================
+# Set the hostname and timezone for this virtual machine
 hostname: debian13-fvtt-template-dev
 timezone: America/Vancouver
 
-# Boot commands (run very early in boot process)
+# ==============================================================================
+# BOOT COMMANDS
+# ==============================================================================
+# Commands that run very early in the boot process, before most services start
+# These are essential for ensuring the system is ready for further configuration
 bootcmd:
+  # Log boot phase start and wait for network interfaces to come online
+  # This prevents race conditions where network-dependent operations fail
   - echo "Boot phase - waiting for network interfaces..." >> /root/setup.log
+  # Wait up to 30 seconds for at least one network interface to be UP
+  # Prevents later network operations from failing due to timing issues
   - timeout 30 sh -c 'until ip link show | grep -q "state UP"; do sleep 1; done' || echo "Network interface timeout" >> /root/setup.log
 
-# User configuration
+# ==============================================================================
+# USER ACCOUNT CONFIGURATION
+# ==============================================================================
+# Create user accounts for system administration and Foundry VTT operation
 users:
+  # Administrative user account with full sudo privileges
   - name: manager
-    groups: [sudo]
-    shell: /bin/bash
-    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    groups: [sudo]                              # Add to sudo group for admin privileges
+    shell: /bin/bash                            # Use bash as default shell
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']           # Allow passwordless sudo for convenience
+    # Password hash for 'password123' - change this in production!
     passwd: '$6$EtqCPBKrPwPLXTWN$SPmsF7Nh2r/2qEZrWZqrRMKaTiJ6ABJ3fLc60Ouu8Js9YWidRUX5.JL1m/tV7dajUzvc18ISFShkeM81ICGlN1'
-    lock_passwd: false
+    lock_passwd: false                          # Allow password authentication
+    # SSH public keys for secure access - these are specific to the dev environment
     ssh_authorized_keys:
+      # Development machine SSH key
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXC8ewQSURYdaH6TWS0/Pv6KGY2tYap7t1eAizeQjKY brad@dev1
+      # Common SSH key used across multiple systems (Jan 2025)
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFK+9vVSQ3PsS5EmZoZDhnwPCl05Z/XdZ8xpG6HijOQX common-jan25
+  
+  # Service account for running Foundry VTT application
+  # Uses nologin shell for security - this account should not be used for interactive login
   - name: fvtt
-    shell: /usr/sbin/nologin
-    system: true
+    shell: /usr/sbin/nologin                    # Prevent interactive login for security
+    system: true                                # Mark as system account
 
-# Package management
-package_update: true
-package_upgrade: true
+# ==============================================================================
+# PACKAGE MANAGEMENT
+# ==============================================================================
+# Configure automatic package updates and install essential packages
+package_update: true                           # Update package lists on first boot
+package_upgrade: true                          # Upgrade all installed packages to latest versions
 packages:
-  - qemu-guest-agent
-  - htop
-  - nfs-common
-  - s3cmd
-  - zip
-  - ufw
+  # Essential packages for VM operation and monitoring
+  - qemu-guest-agent                           # Required for Proxmox VM management and communication
+  - htop                                       # Enhanced process monitoring tool
+  - nfs-common                                 # NFS client support for network file systems
+  - s3cmd                                      # S3-compatible storage client for backups
+  - zip                                        # Archive utility for file compression
+  - ufw                                        # Uncomplicated Firewall for security management
 
-# File system setup
-# Use whole disk without partitions
+# ==============================================================================
+# FILE SYSTEM SETUP
+# ==============================================================================
+# Configure additional storage for Foundry VTT data
+# This assumes a second disk (/dev/sdb) is attached to the VM for data storage
+
+# Format the entire second disk (/dev/sdb) as ext4 for Foundry VTT data
+# Using the whole disk without partitions for simplicity
 fs_setup:
-  - label: fvtt-data
-    filesystem: ext4
-    device: /dev/sdb
-    overwrite: true
+  - label: fvtt-data                           # Filesystem label for easy identification
+    filesystem: ext4                           # Stable, mature filesystem for data storage
+    device: /dev/sdb                           # Second disk attached to VM
+    overwrite: true                            # Replace any existing filesystem
 
+# Mount the data disk to the Foundry VTT data directory
 mounts:
+  # Mount /dev/sdb to /home/fvtt/data for persistent Foundry VTT data storage
+  # Format: [device, mountpoint, filesystem, options, dump, pass]
   - ["/dev/sdb", "/home/fvtt/data", "ext4", "defaults", "0", "2"]
-  # swap file setup (non partition based)
 
+# Configure swap space using a file instead of a partition
+# This provides virtual memory extension for better performance
 swap:
-  filename: /swapfile
-  size: 1G
-  maxsize: 1G
+  filename: /swapfile                        # Location of swap file
+  size: 1.3G                                 # Initial swap size
+  maxsize: 1.3G                              # Maximum swap size
 
-# Write files to system
+# ==============================================================================
+# CONFIGURATION FILES
+# ==============================================================================
+# Create various configuration files needed for system operation
 write_files:
-  # WebDAV configuration
+  # --------------------------------------------------------------------------
+  # WebDAV Server Configuration
+  # --------------------------------------------------------------------------
+  # WebDAV provides web-based file access to Foundry VTT data directory
+  # This allows remote management of game assets and data
   - path: /home/fvtt/webdav/config.yaml
     content: |
-      address: 0.0.0.0
-      port: 3030
-      prefix: /
-      behindProxy: true
-      directory: /home/fvtt/data/foundrydata
-      permissions: CRUD
+      address: 0.0.0.0 
+      port: 3030                              # WebDAV server port
+      debug: false                              # Disable debug logging for production                       
+      prefix: /                               
+      behindProxy: true                       
+      directory: /home/fvtt/data/foundrydata  
+      permissions: CRUD                       
       users:
-      - username: "place#username"
-        password: "place#password"
-    permissions: '0644'
-    owner: fvtt:fvtt
-    defer: true
+      # Authentication credentials - CHANGE THESE IN PRODUCTION!
+      - username: "place#username"           
+        password: "place#password"            
+    permissions: '0644'                       # Read-write for owner, read-only for others
+    owner: fvtt:fvtt                          # Owned by fvtt service account
+    defer: true                               # Create after user accounts are set up
 
-  # WebDAV systemd service
+  # --------------------------------------------------------------------------
+  # WebDAV Systemd Service Definition
+  # --------------------------------------------------------------------------
+  # Systemd service to automatically start and manage the WebDAV server
   - path: /etc/systemd/system/webdav.service
     content: |
       [Unit]
-      Description=WebDAV Server
-      After=network-online.target
-      Wants=network-online.target
+      Description=WebDAV Server               
+      After=network-online.target             
+      Wants=network-online.target             
 
       [Service]
-      Type=simple
-      User=fvtt
-      Group=fvtt
-      ExecStart=/usr/bin/webdav --config /home/fvtt/webdav/config.yaml
-      Restart=on-failure
-      RestartSec=5
+      Type=simple                             
+      User=fvtt                               
+      Group=fvtt                             
+      ExecStart=/usr/bin/webdav --config /home/fvtt/webdav/config.yaml  
+      Restart=on-failure                      
+      RestartSec=5                            
 
       [Install]
-      WantedBy=multi-user.target
-    permissions: '0644'
-    defer: true
+      WantedBy=multi-user.target              
+    permissions: '0644'                       # Standard permissions for systemd service files
+    defer: true                              # Create after system setup is complete
 
-  # Data drive resize service
+  # --------------------------------------------------------------------------
+  # Data Drive Resize Service
+  # --------------------------------------------------------------------------
+  # Automatically resize the data drive filesystem to use all available space
+  # This is needed when the VM disk is resized after initial deployment
   - path: /etc/systemd/system/resize-sdb.service
     content: |
       [Unit]
-      Description=Resize /dev/sdb and filesystem to fill the disk
-      DefaultDependencies=no
-      Before=local-fs-pre.target
-      Wants=local-fs-pre.target
+      Description=Resize /dev/sdb and filesystem to fill the disk  
+      DefaultDependencies=no                  
+      Before=local-fs-pre.target             
+      Wants=local-fs-pre.target              
 
       [Service]
-      User=root
+      User=root                               
       Group=root
-      Type=oneshot
-      ExecStart=/usr/sbin/resize2fs /dev/sdb
-      RemainAfterExit=yes
+      Type=oneshot                            
+      ExecStart=/usr/sbin/resize2fs /dev/sdb  
+      RemainAfterExit=yes                     
 
       [Install]
-      WantedBy=local-fs.target
-    permissions: '0644'
-    defer: true
+      WantedBy=local-fs.target                
+    permissions: '0644'                       # Standard systemd service permissions
+    defer: true                              # Create after initial system setup
 
-  # System environment variables
+  # --------------------------------------------------------------------------
+  # System Environment Variables
+  # --------------------------------------------------------------------------
+  # Set system-wide environment variables for application configuration
   - path: /etc/environment
     content: |
-      # System wide env values
-
-      ############ Foundry Server #########################
-
-      LEVEL=planlevel
-      NODE_ENV=dev
-
+      # System wide environment values - available to all users and services
+      ############ Foundry Server Configuration ##########
+      LEVEL=planlevel                         
+      NODE_ENV=dev                            
       ####################################################
-    permissions: '0644'
-    append: true
-    defer: true
+    permissions: '0644'                       # Readable by all users
+    append: true                              # Add to existing environment file
+    defer: true                              # Create after system initialization
 
-  # Global shell aliases
+  # --------------------------------------------------------------------------
+  # Global Shell Aliases
+  # --------------------------------------------------------------------------
+  # System-wide command aliases available to all users
   - path: /etc/profile.d/custom-aliases.sh
     content: |
-      # Custom system-wide aliases
-      alias ll='ls -la'
-    permissions: '0644'
-    defer: true
+      # Custom system-wide aliases for improved command line experience
+      alias ll='ls -la'                       
+    permissions: '0644'                       # Readable and executable by all
+    defer: true                              # Create after user setup
 
-  # Root shell aliases (root doesn't always source profile.d)
+  # --------------------------------------------------------------------------
+  # Root User Shell Aliases
+  # --------------------------------------------------------------------------
+  # Additional aliases specifically for root user (profile.d may not always be sourced)
   - path: /root/.bashrc
     content: |
       
-      # Custom aliases for root
-      alias ll='ls -la'
-    permissions: '0644'
-    append: true
-    defer: true
+      # Custom aliases for root user - ensures aliases work in all contexts
+      alias ll='ls -la'                       
+    permissions: '0644'                       # Root user file permissions
+    append: true                              # Add to existing .bashrc
+    defer: true                              # Create after system setup
 
-  # Unattended upgrades configuration
+  # --------------------------------------------------------------------------
+  # Automatic Security Updates Configuration
+  # --------------------------------------------------------------------------
+  # Configure unattended-upgrades for automatic security updates
   - path: /etc/apt/apt.conf.d/50unattended-upgrades
     content: |
+      # Define which package sources to automatically upgrade
       Unattended-Upgrade::Origins-Pattern {
+              # Main Debian repository packages
               "origin=Debian,codename=${distro_codename},label=Debian";
+              # Security updates from main security repository
               "origin=Debian,codename=${distro_codename},label=Debian-Security";
+              # Security updates from additional security repository
               "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
       };
+      # No packages are blacklisted from automatic updates
       Unattended-Upgrade::Package-Blacklist {};
+      # Automatically remove unused kernel packages to save space
       Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      # Remove dependencies that are no longer needed after updates
       Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+      # Remove any unused dependencies during updates
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      # Automatically reboot if required after updates (e.g., kernel updates)
       Unattended-Upgrade::Automatic-Reboot "true";
+      # Schedule automatic reboots for 3:00 AM to minimize disruption
       Unattended-Upgrade::Automatic-Reboot-Time "03:00";
-    permissions: '0644'
-    defer: true
+    permissions: '0644'                       # Standard configuration file permissions
+    defer: true                              # Create after package installation
 
-  # Root crontab file
+  # --------------------------------------------------------------------------
+  # Root User Cron Jobs
+  # --------------------------------------------------------------------------
+  # Scheduled maintenance tasks for system cleanup
   - path: /var/spool/cron/crontabs/root
     content: |
-      # Foundry VTT VM cron jobs
-      # Clean up old log files monthly
+      # Runs at 2:00 AM on the 1st day of every month
       0 2 1 * * /usr/bin/find /var/log -name '*.gz' -type f -delete
-      # Monitor script every 5 minutes
-      */5 * * * * /root/monitor.sh >/dev/null 2>&1
-    permissions: '0600'
-    owner: root:crontab
-    defer: true
+    permissions: '0600'                       # Restrictive permissions for cron files
+    owner: root:crontab                       # Owned by root with crontab group
+    defer: true                              # Create after system setup
 
-# Commands to run during cloud-init
+# ==============================================================================
+# RUNTIME COMMANDS
+# ==============================================================================
+# Commands that execute during the cloud-init process to complete system setup
+# These run after packages are installed and files are written
 runcmd:
-  # Wait for network to be fully available before proceeding
+  # --------------------------------------------------------------------------
+  # Network Connectivity Verification
+  # --------------------------------------------------------------------------
+  # Ensure network is fully functional before proceeding with network-dependent operations
+  # This prevents failures in subsequent steps that require internet access
   - |
     echo "Waiting for network connectivity..." >> /root/setup.log
-    MAX_RETRIES=60
+    MAX_RETRIES=60                            
     RETRY_COUNT=0
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-      # Test both route and actual connectivity
+      # Test both routing and actual connectivity to external servers
       if ip route get 1.1.1.1 >/dev/null 2>&1 && ping -c 1 1.1.1.1 >/dev/null 2>&1; then
         echo "Network connectivity confirmed after $RETRY_COUNT attempts" >> /root/setup.log
         break
       fi
       RETRY_COUNT=$((RETRY_COUNT + 1))
       echo "Network not ready, attempt $RETRY_COUNT/$MAX_RETRIES" >> /root/setup.log
-      sleep 2
+      sleep 2                                
     done
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
       echo "WARNING: Network connectivity timeout after $MAX_RETRIES attempts" >> /root/setup.log
     fi
 
-  # Create directory structure for fvtt (includes home directory creation)
-  - mkdir -p /home/fvtt/data/foundrydata/Config
-  - mkdir -p /home/fvtt/data/foundrydata/Data
-  - mkdir -p /home/fvtt/data/foundrydata/Logs
-  - mkdir -p /home/fvtt/data/foundrycore
-  - mkdir -p /home/fvtt/webdav
+  # --------------------------------------------------------------------------
+  # Foundry VTT Directory Structure Creation
+  # --------------------------------------------------------------------------
+  # Create the complete directory structure needed for Foundry VTT operation
+  # This includes both data storage and core application directories
+  - mkdir -p /home/fvtt/data/foundrydata/Config    # User configuration and settings
+  - mkdir -p /home/fvtt/data/foundrydata/Data      # Game worlds, systems, and modules
+  - mkdir -p /home/fvtt/data/foundrydata/Logs      # Application logs and error reports
+  - mkdir -p /home/fvtt/data/foundrycore           # Foundry VTT application files
+  # Set proper ownership for all fvtt directories to the service account
   - chown -R fvtt:fvtt /home/fvtt/
 
-  # Ufw Configuration
+  # --------------------------------------------------------------------------
+  # Firewall Configuration (UFW - Uncomplicated Firewall)
+  # --------------------------------------------------------------------------
+  # Configure a restrictive firewall policy with specific allowances for required services
+  # Default policy: deny all incoming, allow all outgoing
+  - ufw --force enable                                # Enable firewall without prompting
+  - ufw default deny incoming                         # Block all incoming connections by default
+  - ufw default allow outgoing                        # Allow all outgoing connections by default
+  
+  # SSH Access - Allow from private network ranges only
+  - ufw allow in from 10.0.0.0/8 to any port 22 proto tcp      # Private Class A networks
+  - ufw allow in from 172.16.0.0/12 to any port 22 proto tcp   # Private Class B networks  
+  - ufw allow in from 192.168.0.0/16 to any port 22 proto tcp  # Private Class C networks
+  
+  # WebDAV and Foundry VTT Access - Specific server IPs only
+  - ufw allow in from 192.168.0.2 to 3030/tcp        # WebDAV access from server 1
+  - ufw allow in from 192.168.0.2 to 30000/tcp       # Foundry VTT access from server 1
+  - ufw allow in from 192.168.0.3 to 3030/tcp        # WebDAV access from server 2
+  - ufw allow in from 192.168.0.3 to 30000/tcp       # Foundry VTT access from server 2
+  
+  # ICMP (Ping) - Allow for network diagnostics
+  - ufw allow in on any to any proto icmp            # Allow incoming ping requests
+  - ufw allow out on any to any proto icmp           # Allow outgoing ping requests
+  
+  # UDP Traffic - Restrictive policy with essential service exceptions
+  - ufw deny out proto udp                           # Block all outgoing UDP by default
+  - ufw allow out 53/udp                             # Allow DNS queries (essential)
+  - ufw allow out 5353/udp                           # Allow mDNS (multicast DNS)
+  - ufw allow out 123/udp                            # Allow NTP (time synchronization)
+  - ufw deny in proto udp                            # Block all incoming UDP by default
+  - ufw allow in 53/udp                              # Allow incoming DNS (if acting as server)
+  - ufw allow in 5353/udp                            # Allow incoming mDNS
 
-  # Download and install WebDAV server
-  - cd /tmp
+  # --------------------------------------------------------------------------
+  # WebDAV Server Installation
+  # --------------------------------------------------------------------------
+  # Download and install the WebDAV server binary for file management access
+  - cd /tmp                                           # Work in temporary directory
+  # Download WebDAV server v5.8.0 (specific version for stability)
   - wget -q https://github.com/hacdias/webdav/releases/download/v5.8.0/linux-amd64-webdav.tar.gz
-  - tar -xzf linux-amd64-webdav.tar.gz
-  - mv webdav /usr/bin/
-  - rm -f linux-amd64-webdav.tar.gz
+  - tar -xzf linux-amd64-webdav.tar.gz              # Extract the binary
+  - mv webdav /usr/bin/                             # Install to system PATH
+  - rm -f linux-amd64-webdav.tar.gz                 # Clean up downloaded archive
 
-  # Download and install Node.js
-  - cd /tmp
+  # --------------------------------------------------------------------------
+  # Node.js Runtime Installation
+  # --------------------------------------------------------------------------
+  # Install Node.js v25.0.0 for running Foundry VTT application
+  - cd /tmp                                           # Work in temporary directory
+  # Download Node.js v25.0.0 binary distribution (specific version for compatibility)
   - wget -q https://nodejs.org/download/release/v25.0.0/node-v25.0.0-linux-x64.tar.gz
-  - tar -xzf node-v25.0.0-linux-x64.tar.gz
-  - mv node-v25.0.0-linux-x64/bin/node /usr/bin/
-  - rm -rf node-*
+  - tar -xzf node-v25.0.0-linux-x64.tar.gz          # Extract Node.js archive
+  - mv node-v25.0.0-linux-x64/bin/node /usr/bin/    # Install Node.js binary to system PATH
+  - rm -rf node-*                                   # Clean up downloaded files and directories
 
-  # Configure unattended upgrades
-  - dpkg-reconfigure -fnoninteractive unattended-upgrades
+  # --------------------------------------------------------------------------
+  # Automatic Security Updates Configuration
+  # --------------------------------------------------------------------------
+  # Enable and configure the unattended-upgrades service for automatic security updates
+  - dpkg-reconfigure -fnoninteractive unattended-upgrades  # Configure without user interaction
 
-  # Register VM with vmapi service
+  # --------------------------------------------------------------------------
+  # VM Registration with Management API
+  # --------------------------------------------------------------------------
+  # Register this VM with the central VM management API service
+  # This allows the management system to track and monitor this VM instance
   - |
+    # Start the QEMU guest agent for Proxmox communication
     systemctl start qemu-guest-agent
-    # Wait for qemu-guest-agent to be ready with retry logic
-    MAX_RETRIES=30
+    # Wait for qemu-guest-agent to be fully operational with retry logic
+    MAX_RETRIES=30                           
     RETRY_COUNT=0
     while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
       if systemctl is-active --quiet qemu-guest-agent; then
@@ -239,19 +381,21 @@ runcmd:
       fi
       RETRY_COUNT=$((RETRY_COUNT + 1))
       echo "Waiting for qemu-guest-agent... attempt $RETRY_COUNT/$MAX_RETRIES" >> /root/vmapi_registration.log
-      sleep 2
+      sleep 2                                 
     done
     
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
       echo "Failed to confirm qemu-guest-agent is ready after $MAX_RETRIES attempts" >> /root/vmapi_registration.log
-      exit 0
+      exit 0                                  
     fi
     
-    # Get IP from primary network interface
+    # Detect the primary network interface and get its IP address
     INTERFACE=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'dev \K\S+' | head -n1)
     if [ -n "$INTERFACE" ]; then
+      # Extract IP address from the primary interface
       VM_IP=$(ip addr show "$INTERFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
       if [ -n "$VM_IP" ]; then
+        # Register VM with management API using detected IP address
         curl -s -G "http://nodeport2.vm.lan:31002/vm/webhook-init" --data-urlencode "ip=$VM_IP" >> /root/vmapi_registration.log 2>&1 || echo "Failed to register with vmapi service" >> /root/vmapi_registration.log
       else
         echo "Failed to get IP address from interface $INTERFACE" >> /root/vmapi_registration.log
@@ -260,23 +404,34 @@ runcmd:
       echo "Failed to find network interface" >> /root/vmapi_registration.log
     fi
 
-  # Enable and start services
+  # --------------------------------------------------------------------------
+  # System Service Configuration and Startup
+  # --------------------------------------------------------------------------
+  # Reload systemd configuration to recognize new service files
   - systemctl daemon-reload
   
-  # Enable network wait service
+  # Enable network synchronization service to ensure network is ready before other services
   - systemctl enable systemd-networkd-wait-online.service
   
-  # Other services
-  - systemctl enable --now webdav.service
-  - systemctl enable resize-sdb.service
+  # Enable and start application services
+  - systemctl enable --now webdav.service            # Start WebDAV server immediately and on boot
+  - systemctl enable resize-sdb.service              # Enable disk resize service for boot
 
-  # Clean up package cache
-  - apt autoremove -y
-  - apt autoclean
+  # --------------------------------------------------------------------------
+  # System Cleanup and Optimization
+  # --------------------------------------------------------------------------
+  # Clean up package management to free disk space and remove unnecessary packages
+  - apt autoremove -y                                 # Remove packages that are no longer needed
+  - apt autoclean                                     # Clean local package cache
 
-  # Check if reboot is required after package upgrades
+  # --------------------------------------------------------------------------
+  # Post-Setup Reboot Management
+  # --------------------------------------------------------------------------
+  # Check if a system reboot is required after package upgrades and schedule it
+  # This is common after kernel updates or critical system package upgrades
   - |
     if [ -f /var/run/reboot-required ]; then
       echo "Reboot required after package upgrades" >> /root/setup.log
+      # Schedule reboot in 1 minute to allow cloud-init to complete
       shutdown -r +1 "Rebooting after cloud-init setup"
     fi
