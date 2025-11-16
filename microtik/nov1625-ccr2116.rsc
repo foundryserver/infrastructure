@@ -1,4 +1,4 @@
-# 2025-11-15 14:55:02 by RouterOS 7.20.4
+# 2025-11-16 12:43:39 by RouterOS 7.20.4
 # software id = 12J7-W2PI
 #
 # model = CCR2116-12G-4S+
@@ -118,25 +118,29 @@ add address=10.20.10.25 name=backup1.mgmt.lan type=A
 add address=10.20.10.26 name=spare0.mgmt.lan type=A
 add address=10.20.10.27 name=spare1.mgmt.lan type=A
 add address=10.20.10.28 name=pve3.mgmt.lan type=A
-add address=10.20.10.32 name=monitor1.mgmt.lan type=A
 add address=10.20.10.30 name=tailscale1.mgmt.lan type=A
 add address=10.20.10.31 name=tailscale2.mgmt.lan type=A
-add address=10.20.20.23 name=nfs1.vm.lan type=A
-add address=10.20.20.24 name=nfs2.vm.lan type=A
-add address=10.20.20.136 name=mongo1.vm.lan type=A
-add address=10.20.20.134 name=mongo2.vm.lan type=A
-add address=10.20.20.135 name=mongo3.vm.lan type=A
-add address=10.20.20.134 name=dev1.vm.lan type=A
-add address=10.20.20.107 name=nodeport.vm.lan type=A
+add address=192.168.0.2 name=caddy0.vm.lan type=A
 add address=192.168.0.3 name=caddy1.vm.lan type=A
+add address=192.168.0.4 name=dev1.vm.lan type=A
+add address=192.168.0.23 name=nfs1.vm.lan type=A
+add address=192.168.0.24 name=nfs2.vm.lan type=A
 add address=192.168.0.32 name=monitor1.vm.lan type=A
 add address=10.90.90.32 name=monitor1.oob.lan type=A
-add address=192.168.0.2 name=caddy0.vm.lan type=A
-add address=10.20.20.199 comment="LXC Nodeport IPs" name=nodeport1.vm.lan \
-    type=A
 add address=10.20.10.199 comment="Proxmox API LB" name=pve.mgmt.lan type=A
-add address=192.168.0.199 comment="vm nodeport dns" name=nodeport2.vm.lan \
+add address=192.168.0.100 name=cp1.vm.lan type=A
+add address=192.168.0.102 name=cp3.vm.lan type=A
+add address=192.168.0.101 name=cp2.vm.lan type=A
+add address=192.168.0.103 name=wk1.vm.lan type=A
+add address=192.168.0.105 name=wk3.vm.lan type=A
+add address=192.168.0.104 name=wk2.vm.lan type=A
+add address=192.168.0.134 name=mongo2.vm.lan type=A
+add address=192.168.0.135 name=mongo3.vm.lan type=A
+add address=192.168.0.136 name=mongo1.vm.lan type=A
+add address=192.168.0.199 comment="nodeport -> haproxy" name=nodeport.vm.lan \
     type=A
+add address=192.168.0.199 comment="k0s api endpoint -> haproxy" name=\
+    k0sapi.vm.lan type=A
 /ip firewall address-list
 add address=10.20.10.0/24 comment="Mgmt List" list="Mgmt List"
 add address=10.20.20.0/24 comment="VM List 10.x.x.x" list="VM List"
@@ -158,7 +162,7 @@ add action=accept chain=forward comment="Allow Est, Related & Untracked" \
     connection-state=established,related,untracked
 add action=accept chain=forward dst-address=10.20.20.66 in-interface=vlan40 \
     log-prefix=NATTED--> out-interface=vlan20 protocol=tcp
-add action=accept chain=forward dst-address=10.20.20.61 in-interface=vlan40 \
+add action=accept chain=forward dst-address=192.168.0.6 in-interface=vlan40 \
     log-prefix=NATTED--> out-interface=vlan20 protocol=tcp
 add action=drop chain=forward comment="Mgmt Vlan" dst-address-list=\
     "Mgmt List" in-interface=!vlan10
@@ -193,10 +197,10 @@ add action=drop chain=input comment="Drop All Remaining Traffic"
 add action=dst-nat chain=dstnat comment="k8s ip nat" dst-address=199.45.150.2 \
     log-prefix="METALLB/Beanfield -->" to-addresses=10.20.20.66
 add action=dst-nat chain=dstnat comment="development k8s ip nat" dst-address=\
-    199.45.150.9 log-prefix=METALLB---Dev--> to-addresses=10.20.20.61
+    199.45.150.9 log-prefix=METALLB---Dev--> to-addresses=192.168.0.6
 add action=src-nat chain=srcnat out-interface=vlan40 src-address=10.20.20.66 \
     to-addresses=199.45.150.2
-add action=src-nat chain=srcnat out-interface=vlan40 src-address=10.20.20.61 \
+add action=src-nat chain=srcnat out-interface=vlan40 src-address=192.168.0.6 \
     to-addresses=199.45.150.9
 add action=masquerade chain=srcnat comment=\
     "Allow Outbound Connections from Lan" out-interface=vlan40
