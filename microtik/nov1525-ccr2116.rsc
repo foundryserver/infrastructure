@@ -1,18 +1,13 @@
-# 2025-10-30 12:36:40 by RouterOS 7.16.2
-# software id = 8TPU-C45K
+# 2025-11-15 14:55:02 by RouterOS 7.20.4
+# software id = 12J7-W2PI
 #
-# model = RB5009UG+S+
-# serial number = EC1A0F8468CB
+# model = CCR2116-12G-4S+
+# serial number = HK10AH2B85W
 /interface ethernet
-set [ find default-name=ether1 ] disabled=yes
-set [ find default-name=ether2 ] disabled=yes
-set [ find default-name=ether3 ] disabled=yes
-set [ find default-name=ether4 ] disabled=yes
-set [ find default-name=ether5 ] disabled=yes
-set [ find default-name=ether6 ] disabled=yes
-set [ find default-name=ether7 ] disabled=yes
-set [ find default-name=ether8 ] comment="OOB Configuration Port" name=\
-    ether8_oob
+set [ find default-name=ether13 ] comment="OOB Configuration Port" name=\
+    ether13_oob
+set [ find default-name=sfp-sfpplus3 ] comment=\
+    "Downlink Trunk Port to crs317-1"
 set [ find default-name=sfp-sfpplus1 ] comment=\
     "Downlink Trunk Port To Switch" name=sfpplus1_CRS317-1
 /interface vlan
@@ -22,20 +17,27 @@ add comment="Public IP Vlan - Beanfield" interface=sfpplus1_CRS317-1 name=\
     vlan40 vlan-id=40
 add comment="Public IP v6 Vlan - Beanfield" interface=sfpplus1_CRS317-1 name=\
     vlan41 vlan-id=41
-/interface wireless security-profiles
-set [ find default=yes ] supplicant-identity=MikroTik
+/interface bonding
+add comment="Downlink to crs317-1" mode=802.3ad name=bond0 slaves=\
+    sfp-sfpplus3 transmit-hash-policy=layer-2-and-3
 /ip pool
-add name=dhcp_pool0 ranges=192.168.0.100-192.168.255.254
+add name=dhcp_pool0 ranges=192.168.1.1-192.168.255.254
 /ip dhcp-server
 add address-pool=dhcp_pool0 interface=vlan20 name=dhcp1
+/port
+set 0 name=serial0
+/routing bgp instance
+add as=64512 name=bgp-instance-1 router-id=10.20.20.1
+/routing bgp template
+set default as=65530
+/ip firewall connection tracking
+set tcp-established-timeout=1h
 /ip neighbor discovery-settings
-# ipv6 *accept router advertisements* configuration has changed, please restart device to apply settings
 set discover-interface-list=!dynamic
 /ipv6 settings
-# ipv6 *accept router advertisements* configuration has changed, please restart device to apply settings
 set accept-redirects=no accept-router-advertisements=no
 /ip address
-add address=10.90.90.3/24 comment="OOB IP Address" interface=ether8_oob \
+add address=10.90.90.2/24 comment="OOB IP Address" interface=ether13_oob \
     network=10.90.90.0
 add address=10.20.20.1/24 comment="VM Vlan IP Address" interface=vlan20 \
     network=10.20.20.0
@@ -43,22 +45,19 @@ add address=10.20.10.1/24 comment="Mgmt Vlan IP Address" interface=vlan10 \
     network=10.20.10.0
 add address=192.168.0.1/16 comment="VM Vlan IP Address" interface=vlan20 \
     network=192.168.0.0
-add address=172.16.0.1/24 comment="VM Vlan IP Address" interface=vlan20 \
-    network=172.16.0.0
 add address=199.45.150.6/28 comment="Public Router Address" interface=vlan40 \
     network=199.45.150.0
-add address=199.45.150.2/28 comment="K8S Ip Address" interface=vlan40 \
+add address=199.45.150.2/28 comment="K8S Ip Address #1" interface=vlan40 \
     network=199.45.150.0
 add address=199.45.150.9/28 comment="Development K8S Ip Address" interface=\
     vlan40 network=199.45.150.0
 /ip dhcp-server network
-add address=192.168.0.0/16 dns-server=192.168.0.1,1.1.1.1,8.8.8.8 domain=\
-    vm.lan gateway=192.168.0.1
+add address=192.168.0.0/16 dns-server=192.168.0.1,10.20.20.1,1.1.1.1,8.8.8.8 \
+    domain=vm.lan gateway=192.168.0.1
 /ip dns
 set allow-remote-requests=yes servers=1.1.1.1,8.8.8.8
 /ip dns static
-add address=10.90.90.2 name=rb5009-1.oob.local type=A
-add address=10.90.90.3 name=rb5009-2.oob.local type=A
+add address=10.90.90.2 name=ccr2116-1.oob.local type=A
 add address=10.90.90.4 name=crs317-1.oob.local type=A
 add address=10.90.90.5 name=crs317-2.oob.local type=A
 add address=10.90.90.20 name=pve0.oob.local type=A
@@ -93,20 +92,10 @@ add address=10.20.20.133 name=k0sapi.vm.local type=A
 add address=10.20.20.134 name=dev1.vm.local type=A
 add address=10.20.20.106 name=nodeport.vm.local type=A
 add address=10.20.20.107 name=nodeport.vm.local type=A
-add address=192.168.0.3 name=caddy1.vm.local type=A
 add address=192.168.0.32 name=monitor1.vm.local type=A
-add address=192.168.0.6 name=vmapi0.vm.local type=A
-add address=192.168.0.7 name=vmapi1.vm.local type=A
 add address=10.90.90.32 name=monitor1.oob.local type=A
 add address=10.20.20.133 name=haproxy1.vm.local type=A
-add address=192.168.0.2 name=caddy0.vm.local type=A
-add address=10.20.20.199 comment="LXC Nodeport IPs" name=nodeport1.vm.local \
-    type=A
-add address=10.20.10.199 comment="Proxmox API LB" name=pve.mgmt.local type=A
-
-# New .lan entries
-add address=10.90.90.2 name=rb5009-1.oob.lan type=A
-add address=10.90.90.3 name=rb5009-2.oob.lan type=A
+add address=10.90.90.2 name=ccr2116-1.oob.lan type=A
 add address=10.90.90.4 name=crs317-1.oob.lan type=A
 add address=10.90.90.5 name=crs317-2.oob.lan type=A
 add address=10.90.90.20 name=pve0.oob.lan type=A
@@ -134,28 +123,25 @@ add address=10.20.10.30 name=tailscale1.mgmt.lan type=A
 add address=10.20.10.31 name=tailscale2.mgmt.lan type=A
 add address=10.20.20.23 name=nfs1.vm.lan type=A
 add address=10.20.20.24 name=nfs2.vm.lan type=A
-add address=10.20.20.130 name=mongo1.vm.lan type=A
-add address=10.20.20.131 name=mongo2.vm.lan type=A
-add address=10.20.20.132 name=mongo3.vm.lan type=A
-add address=10.20.20.133 name=k0sapi.vm.lan type=A
+add address=10.20.20.136 name=mongo1.vm.lan type=A
+add address=10.20.20.134 name=mongo2.vm.lan type=A
+add address=10.20.20.135 name=mongo3.vm.lan type=A
 add address=10.20.20.134 name=dev1.vm.lan type=A
-add address=10.20.20.106 name=nodeport.vm.lan type=A
 add address=10.20.20.107 name=nodeport.vm.lan type=A
 add address=192.168.0.3 name=caddy1.vm.lan type=A
 add address=192.168.0.32 name=monitor1.vm.lan type=A
 add address=10.90.90.32 name=monitor1.oob.lan type=A
-add address=10.20.20.133 name=haproxy1.vm.lan type=A
 add address=192.168.0.2 name=caddy0.vm.lan type=A
-add address=10.20.20.199 comment="LXC Nodeport IPs" name=nodeport1.vm.lan type=A
+add address=10.20.20.199 comment="LXC Nodeport IPs" name=nodeport1.vm.lan \
+    type=A
 add address=10.20.10.199 comment="Proxmox API LB" name=pve.mgmt.lan type=A
-
-
+add address=192.168.0.199 comment="vm nodeport dns" name=nodeport2.vm.lan \
+    type=A
 /ip firewall address-list
 add address=10.20.10.0/24 comment="Mgmt List" list="Mgmt List"
 add address=10.20.20.0/24 comment="VM List 10.x.x.x" list="VM List"
 add address=192.168.0.0/16 comment="VM List 192.168.x.x" list="VM List"
 add address=10.90.90.0/24 comment="OOB LIst" list="OOB List"
-add address=38.186.49.176/28 comment="Public List" list="Public List"
 add address=199.45.150.0/28 comment="Public List" list="Public List"
 /ip firewall filter
 add action=fasttrack-connection chain=forward hw-offload=yes
@@ -163,9 +149,11 @@ add action=accept chain=input comment="Allow Est, Related, & Untracked" \
     connection-state=established,related,untracked
 add action=accept chain=input comment="Allow ICMP" protocol=icmp
 add action=accept chain=input comment="Allow from OOB Subnet" in-interface=\
-    ether8_oob src-address=10.90.90.0/24
+    ether13_oob src-address=10.90.90.0/24
 add action=accept chain=input comment="Allow dhcp" dst-port=67 in-interface=\
     vlan20 protocol=udp
+add action=accept chain=input comment="BGP Rule" dst-port=179 in-interface=\
+    vlan20 protocol=tcp
 add action=accept chain=forward comment="Allow Est, Related & Untracked" \
     connection-state=established,related,untracked
 add action=accept chain=forward dst-address=10.20.20.66 in-interface=vlan40 \
@@ -180,13 +168,10 @@ add action=accept chain=forward out-interface=vlan40 src-address-list=\
     "VM List"
 add action=accept chain=forward out-interface=vlan40 src-address-list=\
     "Mgmt List"
-add action=accept chain=forward disabled=yes out-interface=*F \
-    src-address-list="OOB List"
 add action=accept chain=forward out-interface=vlan40 src-address-list=\
     "OOB List"
 add action=drop chain=forward comment="Drop All Remaining Traffic" \
     log-prefix="FORWARD DROP -->>"
-add action=accept chain=forward disabled=yes
 add action=accept chain=input comment="Allow udp dns vlan 10" dst-port=53 \
     protocol=udp src-address-list="Mgmt List"
 add action=accept chain=input comment="Allow udp dns vlan 40" dst-port=53 \
@@ -222,13 +207,13 @@ add disabled=no distance=1 dst-address=0.0.0.0/0 gateway=199.45.150.1 \
 add comment="Beanfield Default Route" disabled=no dst-address=::/0 gateway=\
     2606:880::10 routing-table=main suppress-hw-offload=no
 /ip service
-set telnet disabled=yes
 set ftp disabled=yes
+set telnet disabled=yes
 set www disabled=yes
 set ssh port=3637
 set api disabled=yes
-set winbox port=37891
 set api-ssl disabled=yes
+set winbox port=37891
 /ipv6 address
 add address=2606:880::11/127 advertise=no comment="BF PtP Address" interface=\
     vlan40
@@ -299,16 +284,22 @@ add action=accept chain=prerouting comment=\
     "defconf: accept local multicast scope" dst-address=ff02::/16
 add action=drop chain=prerouting comment=\
     "defconf: drop other multicast destinations" dst-address=ff00::/8
+/routing bgp connection
+add connect=yes disabled=no instance=bgp-instance-1 listen=yes local.address=\
+    10.20.20.1 .role=ibgp name=k8s-node-px2 remote.address=10.20.20.104/32 \
+    .as=64512 routing-table=main
 /system clock
 set time-zone-autodetect=no time-zone-name=America/Vancouver
 /system identity
-set name=RB5009-2
+set name=CCR2116-1
 /system note
 set show-at-login=no
 /system ntp client
 set enabled=yes
 /system ntp client servers
 add address=time.google.com
+/system routerboard settings
+set enter-setup-on=delete-key
 /tool e-mail
 set from="" port=443 server=mail.smtp2go.com tls=yes user=\
     admin@foundryserver.com
