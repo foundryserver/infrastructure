@@ -1,6 +1,6 @@
 # Install and Setup of Replicated Mongo db
 
-This will be in a VM on each hypervisor to provide HA. We will be using a stock ubuntu 22.04.3 Release.
+This will be in a VM on each hypervisor to provide HA. We will be using a stock ubuntu 22.04.3 Release
 
 ## Proxmox VM Settings
 
