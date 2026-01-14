@@ -506,3 +506,15 @@ This guide covered:
 - Basic multi-site concepts
 
 RADOS Gateway provides enterprise-grade object storage with S3/Swift compatibility, making it an excellent solution for cloud storage needs on Proxmox infrastructure.
+
+## Create Buckets and users
+
+```
+radosgw-admin user create --uid="velero-user" --display-name="Velero User"
+radosgw-admin bucket create --bucket=velero-bucket --uid=velero-user
+radosgw-admin user info --uid=velero-user
+
+radosgw-admin user create --uid="export-user" --display-name="Export User"
+radosgw-admin bucket create --bucket=export-bucket --uid=export-user
+radosgw-admin user info --uid=export-user
+```
