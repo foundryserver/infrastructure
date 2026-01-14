@@ -1,0 +1,147 @@
+# S3 Object Storage Ceph
+
+This will show what is required to setup object storage on the proxmox ceph cluster.
+
+## Accessability
+
+The ceph cli is available on the proxmox hosts. You can ssh to this machine using the following:
+
+- address: pve0.mgmt.local
+- port: 22
+- user: root
+
+To test access you can issue the command ceph --status
+
+## Rules
+
+**NEVER** Make any configuration changes without authorization, this is a production cluster.
+**ALWAYS** Query or read information from the ceph cluster without consent as long as it is NOT destructive to the production cluster.
+**ALWAYS** Consult the official documentation at https://docs.ceph.com/en/latest/ when you are doing your mandatory research before suggesting a change.
+**ALWAYS** Research before suggesting any course of action. NO guessing, the solutions have be backed by documentation
+**ALWAYS** Cite your references that back your answer
+
+## Infrastructure
+
+The ceph cluster has been deployed via the Proxmox 9 hypervisor ecosystem. This should not change the functionality of the ceph cluster, but you should consider this in your research. There are 4 hosts.
+
+- pve0.mgmt.local
+- pve1.mgmt.local
+- pve2.mgmt.local
+- pve3.mgmt.local
+
+## Diagnosis Report - January 11, 2026
+
+**Current Status:** RADOS Gateway service is FAILED
+
+**Ceph Version:** 19.2.3 (squid stable)
+
+### Problem Identified
+
+The RADOS Gateway (RGW) service `ceph-radosgw@rgw.pve0.service` is failing to start with the error:
+
+```
+Couldn't init storage provider (RADOS)
+```
+
+**Root Cause:** The RGW zone configuration expects the following pools, but they do not exist:
+
+- `default.rgw.buckets.data` (for storing object data) ❌ MISSING
+- `default.rgw.buckets.index` (for bucket indices) ❌ MISSING
+- `default.rgw.buckets.non-ec` (for bucket metadata) ❌ MISSING
+- `default.rgw.otp` (for one-time passwords) ❌ MISSING
+
+**Existing pools:**
+
+- `.rgw.root` ✓ EXISTS
+- `default.rgw.log` ✓ EXISTS
+- `default.rgw.control` ✓ EXISTS
+- `default.rgw.meta` ✓ EXISTS
+
+### Solution
+
+According to the official Ceph documentation, when `radosgw` first tries to operate on a zone pool that does not exist, it should automatically create those pools. However, this automatic creation has not occurred, likely due to the service failing before it could complete initialization.
+
+**Reference:** https://docs.ceph.com/en/latest/radosgw/pools/#tuning
+
+> "When radosgw first tries to operate on a zone pool that does not exist, it will create that pool with the default values from osd pool default pg num and osd pool default pgp num."
+
+### Recommended Action Plan
+
+**Option 1: Manual Pool Creation (Safest)**
+
+Create the missing pools manually with settings matching your existing RGW pools:
+
+- Replica size: 3 (matching other RGW pools)
+- PG count: 32 (matching other RGW pools)
+- Autoscale: enabled (matching other RGW pools)
+
+```bash
+# Create the data pool (this will store actual object data)
+ceph osd pool create default.rgw.buckets.data 32 32 replicated
+ceph osd pool application enable default.rgw.buckets.data rgw
+
+# Create the index pool (this will store bucket indices)
+ceph osd pool create default.rgw.buckets.index 32 32 replicated
+ceph osd pool application enable default.rgw.buckets.index rgw
+
+# Create the non-EC pool (this will store bucket metadata)
+ceph osd pool create default.rgw.buckets.non-ec 32 32 replicated
+ceph osd pool application enable default.rgw.buckets.non-ec rgw
+
+# Create the OTP pool (for one-time passwords/MFA)
+ceph osd pool create default.rgw.otp 32 32 replicated
+ceph osd pool application enable default.rgw.otp rgw
+
+# Enable autoscaling on all new pools
+ceph osd pool set default.rgw.buckets.data pg_autoscale_mode on
+ceph osd pool set default.rgw.buckets.index pg_autoscale_mode on
+ceph osd pool set default.rgw.buckets.non-ec pg_autoscale_mode on
+ceph osd pool set default.rgw.otp pg_autoscale_mode on
+
+# Restart the RGW service
+systemctl restart ceph-radosgw@rgw.pve0.service
+
+# Check the service status
+systemctl status ceph-radosgw@rgw.pve0.service
+```
+
+**Option 2: Zone Period Commit (Alternative)**
+
+The zone configuration exists but pools weren't created. You can try committing the zone period to trigger pool creation:
+
+```bash
+# Update the zone period to trigger pool creation
+radosgw-admin period update --commit
+
+# Restart the RGW service
+systemctl restart ceph-radosgw@rgw.pve0.service
+```
+
+### Post-Implementation Verification
+
+After implementing the solution, verify:
+
+```bash
+# 1. Check all RGW pools exist
+ceph osd pool ls | grep rgw
+
+# 2. Verify RGW service is running
+systemctl status ceph-radosgw@rgw.pve0.service
+
+# 3. Check Ceph cluster status
+ceph -s
+
+# 4. Test RGW is listening (default port 7480)
+curl -I http://pve0.mgmt.local:7480
+
+# 5. Create a test user
+radosgw-admin user create --uid=testuser --display-name="Test User"
+
+# 6. Test S3 access with the generated credentials
+```
+
+### References
+
+- Ceph Pools Documentation: https://docs.ceph.com/en/latest/radosgw/pools/
+- Ceph RGW Config Reference: https://docs.ceph.com/en/latest/radosgw/config-ref/
+- Ceph Admin Guide: https://docs.ceph.com/en/latest/radosgw/admin/
