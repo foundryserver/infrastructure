@@ -507,14 +507,23 @@ This guide covered:
 
 RADOS Gateway provides enterprise-grade object storage with S3/Swift compatibility, making it an excellent solution for cloud storage needs on Proxmox infrastructure.
 
-## Create Buckets and users
+## Create Buckets and Users
 
-```
+```bash
+# Create velero user
 radosgw-admin user create --uid="velero-user" --display-name="Velero User"
-radosgw-admin bucket create --bucket=velero-bucket --uid=velero-user
 radosgw-admin user info --uid=velero-user
 
+# Create velero bucket (using AWS CLI with velero-user credentials)
+aws --endpoint-url http://<node-ip>:7480 s3 mb s3://velero-bucket
+
+# Create export user
 radosgw-admin user create --uid="export-user" --display-name="Export User"
-radosgw-admin bucket create --bucket=export-bucket --uid=export-user
 radosgw-admin user info --uid=export-user
+
+# Create export bucket (using AWS CLI with export-user credentials)
+aws --endpoint-url http://<node-ip>:7480 s3 mb s3://export-bucket
+
+# List all buckets (admin command)
+radosgw-admin bucket list
 ```
