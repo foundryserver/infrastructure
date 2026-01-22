@@ -354,6 +354,269 @@ s3cmd mb s3://testbucket
 s3cmd put testfile.txt s3://testbucket/
 ```
 
+## S3 Bucket Lifecycle Configuration
+
+### Overview
+
+Lifecycle policies enable automatic deletion of objects in S3 buckets based on age or other criteria. This is useful for managing storage costs and automating cleanup of temporary or export files.
+
+**Requirements:**
+
+- Ceph 19+ (Reef) or later for full lifecycle policy support
+- AWS CLI configured with appropriate credentials
+- Existing bucket with objects to manage
+
+### Configuring Auto-Expiration Policies
+
+Lifecycle policies can automatically delete objects after a specified number of days. Ceph processes lifecycle rules at midnight UTC daily.
+
+#### Step 1: Create Lifecycle Policy File
+
+Create a JSON file defining the lifecycle rules:
+
+```bash
+cat > lifecycle-policy.json <<EOF
+{
+  "Rules": [
+    {
+      "ID": "DeleteAllExportsAfter31Days",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Expiration": {
+        "Days": 31
+      }
+    }
+  ]
+}
+EOF
+```
+
+**Policy Explanation:**
+
+- **ID**: Descriptive name for the rule
+- **Status**: "Enabled" or "Disabled"
+- **Filter**: Specifies which objects the rule applies to
+  - **Prefix**: "" applies to all objects; use "exports/" to target specific paths
+- **Expiration**: Defines when objects are deleted
+  - **Days**: Objects older than this many days are deleted
+
+#### Step 2: Apply Policy to Bucket
+
+Apply the lifecycle configuration to your bucket:
+
+```bash
+# Replace with your endpoint and bucket name
+aws s3api put-bucket-lifecycle-configuration \
+  --endpoint-url http://<node-ip>:7480 \
+  --bucket export-bucket \
+  --lifecycle-configuration file://lifecycle-policy.json
+```
+
+For HTTPS endpoints:
+
+```bash
+aws s3api put-bucket-lifecycle-configuration \
+  --endpoint-url https://<ceph-rgw-endpoint> \
+  --bucket export-bucket \
+  --lifecycle-configuration file://lifecycle-policy.json
+```
+
+#### Step 3: Verify Configuration
+
+Confirm the lifecycle policy was applied successfully:
+
+```bash
+aws s3api get-bucket-lifecycle-configuration \
+  --endpoint-url http://<node-ip>:7480 \
+  --bucket export-bucket
+```
+
+Expected output:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "DeleteAllExportsAfter31Days",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": ""
+      },
+      "Expiration": {
+        "Days": 31
+      }
+    }
+  ]
+}
+```
+
+### Advanced Lifecycle Examples
+
+#### Multiple Rules with Different Prefixes
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "DeleteExportsAfter7Days",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "exports/"
+      },
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "DeleteLogsAfter30Days",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "logs/"
+      },
+      "Expiration": {
+        "Days": 30
+      }
+    },
+    {
+      "ID": "DeleteBackupsAfter90Days",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "Expiration": {
+        "Days": 90
+      }
+    }
+  ]
+}
+```
+
+#### Transition to Different Storage Classes (if supported)
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "ArchiveOldBackups",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "backups/"
+      },
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "GLACIER"
+        }
+      ],
+      "Expiration": {
+        "Days": 365
+      }
+    }
+  ]
+}
+```
+
+### Managing Lifecycle Policies
+
+#### Update Existing Policy
+
+To update a policy, modify the JSON file and reapply:
+
+```bash
+aws s3api put-bucket-lifecycle-configuration \
+  --endpoint-url http://<node-ip>:7480 \
+  --bucket <bucket-name> \
+  --lifecycle-configuration file://updated-lifecycle-policy.json
+```
+
+#### Delete Lifecycle Policy
+
+Remove all lifecycle rules from a bucket:
+
+```bash
+aws s3api delete-bucket-lifecycle \
+  --endpoint-url http://<node-ip>:7480 \
+  --bucket <bucket-name>
+```
+
+#### List Buckets with Lifecycle Policies
+
+Check which buckets have lifecycle policies:
+
+```bash
+# List all buckets
+aws --endpoint-url http://<node-ip>:7480 s3 ls
+
+# Check each bucket for lifecycle config
+for bucket in $(aws --endpoint-url http://<node-ip>:7480 s3 ls | awk '{print $3}'); do
+  echo "Bucket: $bucket"
+  aws s3api get-bucket-lifecycle-configuration \
+    --endpoint-url http://<node-ip>:7480 \
+    --bucket $bucket 2>/dev/null || echo "No lifecycle policy"
+  echo "---"
+done
+```
+
+### Monitoring Lifecycle Deletions
+
+Track objects deleted by lifecycle policies:
+
+```bash
+# Check RGW logs for lifecycle activity
+journalctl -u ceph-radosgw@rgw.$(hostname).rgw0 | grep -i lifecycle
+
+# Monitor bucket object count over time
+watch -n 300 'radosgw-admin bucket stats --bucket=<bucket-name>'
+```
+
+### Important Notes
+
+- **One-time setup**: Lifecycle policies only need to be applied once per bucket
+- **Deletion timing**: Ceph processes lifecycle rules at midnight UTC daily
+- **No recovery**: Objects deleted by lifecycle policies cannot be recovered
+- **Testing**: Test policies on non-production buckets first
+- **Monitoring**: Regularly verify policies are working as expected
+- **Object age**: Object age is calculated from the creation date (Last-Modified timestamp)
+
+### Troubleshooting Lifecycle Policies
+
+**Policy not deleting objects:**
+
+```bash
+# Verify policy is applied
+aws s3api get-bucket-lifecycle-configuration \
+  --endpoint-url http://<node-ip>:7480 \
+  --bucket <bucket-name>
+
+# Check object ages
+aws --endpoint-url http://<node-ip>:7480 s3 ls s3://<bucket-name>/ --recursive
+
+# Check RGW logs
+tail -f /var/log/ceph/client.rgw.*.log | grep -i lifecycle
+```
+
+**Verify Ceph version supports lifecycle:**
+
+```bash
+ceph version
+# Should be Reef (19.x) or later
+```
+
+**Check RGW lifecycle processing:**
+
+```bash
+# Enable debug logging for lifecycle
+ceph config set client.rgw debug_rgw 20
+
+# Monitor processing
+journalctl -u ceph-radosgw@rgw.$(hostname).rgw0 -f | grep lifecycle
+
+# Reset debug level
+ceph config set client.rgw debug_rgw 1
+```
+
 ## Monitoring and Troubleshooting
 
 ### Check RGW Status
